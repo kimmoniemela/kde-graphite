@@ -53,6 +53,7 @@ class InstallTests(unittest.TestCase):
         entry = tiler / 'contents' / metadata['X-Plasma-MainScript']
         self.assertIn(entry, files)
         self.assertNotIn(b'../code/script.js', files[entry])
+        self.assertNotIn(b'../code/script.js', files[tiler / 'contents/ui/main.qml'])
         import re
         imported = re.search(rb'"../code/([^\"]+)"', files[entry]).group(1).decode()
         self.assertIn(tiler / 'contents/code' / imported, files)
@@ -120,7 +121,6 @@ function print() {}
 function QTimer() {
     this.timeout = {connect: fn => { this.callback = fn; }};
     this.start = () => asynchronous.push(this.callback);
-    this.deleteLater = () => {};
 }
 function drain() { while (asynchronous.length) asynchronous.shift()(); }
 """

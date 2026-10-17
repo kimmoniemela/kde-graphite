@@ -152,6 +152,13 @@ user's request. Tiling remains controllable through the command-line helper.
 
 ## Files and installation
 
+Window-management fixes added explicit Kröhnkite shutdown cleanup, guards for
+ordinary moves/resizes while suspended and fresh reads of its enabled flags.
+The workspace script reuses supported timers instead of calling `deleteLater`,
+which KWin's script timer does not expose. Shifted number shortcuts now follow
+the active XKB layout, including Finnish and US. The obsolete launcher v1 was
+removed; required components are listed in [components.md](components.md).
+
 The subsequent [portability audit](portability-audit.md) made appearance the
 default command and the native wheel effect optional. Portable application
 defaults now use KDE applications; the existing machine's launchers were kept.

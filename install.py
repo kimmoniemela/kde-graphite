@@ -128,7 +128,10 @@ def payload(options, data):
     main_qml = files[krohnkite / 'contents/ui/main.qml']
     version = hashlib.sha256(script + main_qml).hexdigest()[:12]
     files[krohnkite / f'contents/code/script-{version}.js'] = script
-    files[krohnkite / f'contents/ui/main-{version}.qml'] = main_qml.replace(b'../code/script.js', f'../code/script-{version}.js'.encode())
+    rendered_qml = main_qml.replace(b'../code/script.js', f'../code/script-{version}.js'.encode())
+    files[krohnkite / f'contents/ui/main-{version}.qml'] = rendered_qml
+    # KWin's normal script loader uses ui/main.qml even when metadata names another entry.
+    files[krohnkite / 'contents/ui/main.qml'] = rendered_qml
     metadata_path = krohnkite / 'metadata.json'
     metadata = json.loads(files[metadata_path])
     metadata['X-Plasma-MainScript'] = f'ui/main-{version}.qml'
@@ -142,6 +145,7 @@ def payload(options, data):
     files[scripts / 'kde-hypr-bridge/contents/code/main.js'] = (ROOT / 'templates/workspaces.js').read_bytes()
     qml = (ROOT / 'templates/launchers.qml').read_text()
     prefix = shlex.join([sys.executable, str(runtime / 'launch-app.py')])
+    qml = qml.replace('@@WORKSPACE_KEYS_COMMAND@@', json.dumps(shlex.join([sys.executable, str(runtime / 'workspace-keys.py')])))
     handlers = []
     for name, sequence in KEYS.items():
         handlers.append('    ShortcutHandler { name: ' + json.dumps('KdeHyprLaunch' + name)
@@ -394,12 +398,13 @@ def apply(options, config, data, state, with_wheel=False, panel=True):
 
 
 def check(with_wheel=None):
+    config = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
+    plugins = read_config(config / 'kwinrc')
     if with_wheel is None:
-        config = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
-        with_wheel = read_config(config / 'kwinrc').getboolean('Plugins', WHEEL + 'Enabled', fallback=False)
+        with_wheel = plugins.getboolean('Plugins', WHEEL + 'Enabled', fallback=False)
     for name in SCRIPTS:
         loaded = kwin('/Scripting', 'org.kde.kwin.Scripting.isScriptLoaded', name) == '(true,)'
-        expected = True  # The tiler stays loaded while its runtime mode is off.
+        expected = plugins.getboolean('Plugins', 'krohnkiteEnabled', fallback=False) if name == 'krohnkite' else True
         if loaded != expected:
             raise RuntimeError(f'Script state does not match configuration: {name}')
     count = kwin('/VirtualDesktopManager', 'org.freedesktop.DBus.Properties.Get', 'org.kde.KWin.VirtualDesktopManager', 'count')

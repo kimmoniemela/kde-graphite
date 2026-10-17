@@ -34,6 +34,7 @@
       "krohnkiteEnabled": "true",
       "kde-hypr-bridgeEnabled": "true",
       "kde-hypr-launchers-v2Enabled": "true",
+      "kde-hypr-launchersEnabled": "false",
       "kwin_hypr_scroll_desktopEnabled": "true",
       "graphite-window-controlsEnabled": "true"
     },

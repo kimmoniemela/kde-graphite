@@ -107,7 +107,11 @@ python3 install.py restore --dry-run
 python3 install.py restore
 ```
 
-Tiling off suspends automatic arrangement without unloading Kröhnkite.
+The command above suspends automatic arrangement without unloading Kröhnkite.
+Unchecking Kröhnkite in KWin Scripts settings unloads it and disconnects its
+window handlers. Both modes leave windows free to move, resize and maximize;
+existing windows retain their last positions. After updating script files,
+log out and back in before testing the new behavior.
 Super+Alt+Space floats one window. All normal windows keep their mouse controls.
 
 Touched files are backed up under `~/.local/state/kde-graphite/backups/`.
@@ -119,4 +123,4 @@ before applying colors.
 
 See [optional wheel shortcuts and theme packaging](docs/install-options.md),
 [portability audit](docs/portability-audit.md), [setup history](docs/setup-history.md)
-and [third-party sources](THIRD_PARTY.md).
+and [component list](docs/components.md).

@@ -52,6 +52,7 @@ def problems(api, options, full=False, with_wheel=False):
                 api.dbus(service, path, method)
             if full:
                 api.dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.freedesktop.DBus.Peer.Ping')
+                api.dbus('org.kde.keyboard', '/Layouts', 'org.freedesktop.DBus.Peer.Ping')
                 reply = api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript',
                                  'print(JSON.stringify(knownWidgetTypes));')
                 widgets = json.loads(ast.literal_eval(reply)[0])

@@ -3,17 +3,24 @@ function action(name, text, keys, fn) {
     registerShortcut('KdeHypr' + name, 'Graphite: ' + text, keys, fn);
 }
 const pendingTimers = new Set();
+const idleTimers = [];
 function later(delay, callback) {
-    const timer = new QTimer();
-    timer.singleShot = true;
-    timer.interval = delay;
-    pendingTimers.add(timer);
-    timer.timeout.connect(() => {
-        pendingTimers.delete(timer);
-        callback();
-        timer.deleteLater();
-    });
-    timer.start();
+    let job = idleTimers.pop();
+    if (!job) {
+        job = {timer: new QTimer(), callback: null};
+        job.timer.singleShot = true;
+        job.timer.timeout.connect(() => {
+            const run = job.callback;
+            job.callback = null;
+            pendingTimers.delete(job);
+            idleTimers.push(job);
+            run();
+        });
+    }
+    job.callback = callback;
+    job.timer.interval = delay;
+    pendingTimers.add(job);
+    job.timer.start();
 }
 function screenForNumber(n) {
     const screens = workspace.screens;
@@ -48,7 +55,7 @@ function sendNumber(n) {
     const desktop = workspace.desktops[(n - 1) % 5];
     function transfer() {
         if (w.deleted) return;
-        workspace.sendClientToScreen(w, screen);
+        if (w.output !== screen) workspace.sendClientToScreen(w, screen);
         w.desktops = [desktop];
     }
     if (w.output !== screen && !w.skipPager) {

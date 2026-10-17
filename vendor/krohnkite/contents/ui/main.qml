@@ -30,6 +30,9 @@ Item {
     id: scriptRoot
     property var driver: null
     property bool runtimeEnabled: KWin.readConfig("runtimeEnabled", true)
+    property bool runtimeRequested: KWin.readConfig("runtimeEnabled", true)
+    property bool enabledInSettings: true
+    property int pollSerial: 0
     function updateMode(value) {
         if (value === runtimeEnabled) return;
         runtimeEnabled = value;
@@ -47,12 +50,22 @@ Item {
         connectedSources: []
         onNewData: function(source, data) {
             disconnectSource(source);
-            if (data["exit code"] === 0) scriptRoot.updateMode(data.stdout.trim() !== "false");
+            if (data["exit code"] !== 0) return;
+            if (source.includes("--group Plugins"))
+                scriptRoot.enabledInSettings = data.stdout.trim() !== "false";
+            else
+                scriptRoot.runtimeRequested = data.stdout.trim() !== "false";
+            scriptRoot.updateMode(scriptRoot.runtimeRequested && scriptRoot.enabledInSettings);
         }
     }
     Timer {
         interval: 500; running: true; repeat: true; triggeredOnStart: true
-        onTriggered: modeReader.connectSource("kreadconfig6 --file kwinrc --group Script-krohnkite --key runtimeEnabled --default true")
+        onTriggered: {
+            // A unique source prevents the executable engine from returning cached output.
+            const prefix = "env GRAPHITE_READ_ID=" + Date.now() + "-" + (++scriptRoot.pollSerial) + " ";
+            modeReader.connectSource(prefix + "kreadconfig6 --file kwinrc --group Script-krohnkite --key runtimeEnabled --default true");
+            modeReader.connectSource(prefix + "kreadconfig6 --file kwinrc --group Plugins --key krohnkiteEnabled --default false");
+        }
     }
 
     TaskManager.ActivityInfo {
@@ -83,6 +96,9 @@ Item {
         driver.main();
     }
     Component.onDestruction: {
+        // Workspace/window signals outlive this QML root unless explicitly disconnected.
+        if (driver) driver.shutdown();
+        else K.setGraphiteTilingEnabled(false);
         // Also restore controls when tiling is disabled from System Settings.
         for (const window of Workspace.stackingOrder) {
             if (window && !window.deleted && window.normalWindow && !window.fullScreen)
