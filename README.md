@@ -13,7 +13,7 @@ Start with a working Plasma Wayland session. On Arch:
 
 ```sh
 sudo pacman -S --needed base-devel cmake extra-cmake-modules kwin pyside6 \
-  plasma5support kitty nautilus firefox gnome-text-editor gnome-calculator \
+  kscreen plasma5support kitty nautilus firefox gnome-text-editor gnome-calculator \
   btop wl-clipboard ttf-fira-code
 ```
 
@@ -22,7 +22,7 @@ On Fedora:
 ```sh
 sudo dnf install gcc-c++ cmake extra-cmake-modules kwin-devel \
   qt6-qtdeclarative-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel \
-  python3-pyside6 plasma5support kitty nautilus firefox gnome-text-editor \
+  python3-pyside6 kscreen plasma5support kitty nautilus firefox gnome-text-editor \
   gnome-calculator btop wl-clipboard fira-code-fonts
 ```
 
@@ -61,8 +61,10 @@ python3 install.py check
 ```
 
 The installer merges selected KDE settings and configures one top bar per
-connected monitor. Existing top bars are reused; other panels remain.
-It does not copy display modes, desktop UUIDs or widget IDs from another machine. Hyprland, Sway, GNOME, GTK and shell configuration
+connected monitor, labelled 1–5 on the primary and 6–10 on the secondary.
+Existing top bars are reused; other panels remain.
+It does not copy display modes, desktop UUIDs or widget IDs from another machine.
+Hyprland, Sway, GNOME, GTK and shell configuration
 are not installed or modified. KDE's GTK synchronization module is disabled
 before applying the palette.
 
@@ -78,13 +80,13 @@ python3 install.py --settings settings.local.json
 ```
 
 Application commands are argument arrays. `primary_output` and
-`secondary_output` are optional output names; empty values select the internal
-display and first external display automatically. On a single monitor, both
-number-key groups select that monitor.
+`secondary_output` are optional output names. Empty values follow KDE's display
+priority at installation. On a single monitor, both number-key groups select
+that monitor.
 
-Each monitor has workspaces 1–5. Super+1–5 selects the primary monitor;
-Super+6–0 selects the secondary monitor's 1–5. Super+Ctrl+1–5 selects a workspace
-on the focused monitor. See [shortcuts](docs/shortcuts.md).
+The bars show 1–5 on the primary monitor and 6–10 on the secondary.
+Super+1–5 and Super+6–0 select those destinations; add Shift to send a window.
+Super+Ctrl+1–5 selects a workspace on the focused monitor. See [shortcuts](docs/shortcuts.md).
 
 ## Tiling
 

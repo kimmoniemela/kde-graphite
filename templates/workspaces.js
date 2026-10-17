@@ -2,11 +2,24 @@
 function action(name, text, keys, fn) {
     registerShortcut('KdeHypr' + name, 'Graphite: ' + text, keys, fn);
 }
+const pendingTimers = new Set();
+function later(delay, callback) {
+    const timer = new QTimer();
+    timer.singleShot = true;
+    timer.interval = delay;
+    pendingTimers.add(timer);
+    timer.timeout.connect(() => {
+        pendingTimers.delete(timer);
+        callback();
+        timer.deleteLater();
+    });
+    timer.start();
+}
 function screenForNumber(n) {
     const screens = workspace.screens;
     const primaryName = readConfig('PrimaryOutput', '');
     const secondaryName = readConfig('SecondaryOutput', '');
-    const primary = screens.find(s => s.name === primaryName) || screens.find(s => /^(eDP|LVDS|DSI)/.test(s.name)) || screens[0];
+    const primary = screens.find(s => s.name === primaryName) || screens[0];
     const secondary = screens.find(s => s.name === secondaryName) || screens.find(s => s !== primary) || primary;
     return n <= 5 ? primary : secondary;
 }
@@ -18,14 +31,34 @@ function focusScreen(screen) {
 }
 function switchNumber(n) {
     const screen = screenForNumber(n);
-    workspace.setCurrentDesktopForScreen(workspace.desktops[(n - 1) % 5], screen);
+    const desktop = workspace.desktops[(n - 1) % 5];
     focusScreen(screen);
+    // Native screen focus may first activate a window on its previous desktop.
+    later(30, () => {
+        workspace.setCurrentDesktopForScreen(desktop, screen);
+        const windows = workspace.windowList().filter(w => !w.specialWindow && !w.minimized && w.output === screen &&
+            (w.desktops.length === 0 || w.desktops.indexOf(desktop) >= 0));
+        if (windows.length) workspace.activeWindow = windows[windows.length - 1];
+    });
 }
 function sendNumber(n) {
     const w = workspace.activeWindow;
     if (!w || w.specialWindow) return;
-    workspace.sendClientToScreen(w, screenForNumber(n));
-    w.desktops = [workspace.desktops[(n - 1) % 5]];
+    const screen = screenForNumber(n);
+    const desktop = workspace.desktops[(n - 1) % 5];
+    function transfer() {
+        if (w.deleted) return;
+        workspace.sendClientToScreen(w, screen);
+        w.desktops = [desktop];
+    }
+    if (w.output !== screen && !w.skipPager) {
+        // Let the tiler release its pending frame before transferring outputs.
+        w.skipPager = true;
+        later(50, () => {
+            transfer();
+            later(50, () => { if (!w.deleted) w.skipPager = false; });
+        });
+    } else transfer();
 }
 function bank(screen) { return 0; } // Five native desktops, independently selected on each output.
 function relative(delta, move) {
@@ -51,8 +84,7 @@ function nextEmpty() {
 for (let n = 1; n <= 10; n++) {
     const number = n, key = n % 10;
     action('Desktop' + n, 'Workspace ' + n, 'Meta+' + key, () => switchNumber(number));
-    // Workspaces 1–5 use KWin's native, monitor-local move actions.
-    if (n > 5) action('SendDesktop' + n, 'Send window to workspace ' + n, 'Meta+Shift+' + key, () => sendNumber(number));
+    action('SendDesktop' + n, 'Send window to workspace ' + n, 'Meta+Shift+' + key, () => sendNumber(number));
 }
 for (let n = 1; n <= 5; n++) {
     const number = n;

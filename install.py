@@ -95,6 +95,9 @@ def payload(options, data):
         'ScreenshotRegion': ['spectacle', '--region'], 'ScreenshotFull': ['spectacle', '--fullscreen'],
     })
     files[runtime / 'launchers.json'] = (json.dumps(commands, indent=2) + '\n').encode()
+    for source in (ROOT / 'widgets').rglob('*'):
+        if source.is_file():
+            files[data / 'plasma/plasmoids' / source.relative_to(ROOT / 'widgets')] = source.read_bytes()
     scripts = data / 'kwin/scripts'
     for source in (ROOT / 'vendor/krohnkite').rglob('*'):
         if source.is_file():
@@ -192,6 +195,21 @@ def native_shortcuts():
         dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(keys), '4')
 
 
+def workspace_shortcuts():
+    return [('kwin', 'KdeHypr' + prefix + str(n), modifier + str(n % 10))
+            for prefix, modifier in [('Desktop', 'Meta+'), ('SendDesktop', 'Meta+Shift+')]
+            for n in range(1, 11)]
+
+
+def set_workspace_shortcuts():
+    from PySide6.QtGui import QKeySequence
+    # Explicitly update saved bindings too, including upgrades from disabled actions.
+    for component, name, sequence in workspace_shortcuts():
+        ids = json.dumps([component, name, 'KWin', 'Graphite: ' + name])
+        keys = [QKeySequence(sequence)[0].toCombined()]
+        dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(keys), '4')
+
+
 def tray_ids():
     def strings(value):
         return [ast.literal_eval(m.group()) for m in re.finditer(r"'(?:[^'\\]|\\.)*'", value)]
@@ -213,7 +231,7 @@ def tray_ids():
 def preflight(with_wheel=True):
     if 'KDE' not in os.environ.get('XDG_CURRENT_DESKTOP', '').split(':') or not os.environ.get('WAYLAND_DISPLAY'):
         raise RuntimeError('Run this from a KDE Plasma Wayland session.')
-    for executable in ['gdbus', 'kwriteconfig6', 'systemctl', 'fc-list']:
+    for executable in ['gdbus', 'kwriteconfig6', 'systemctl', 'fc-list', 'kscreen-doctor']:
         if not shutil.which(executable):
             raise RuntimeError(f'Missing executable: {executable}')
     from PySide6.QtGui import QKeySequence  # noqa: F401
@@ -225,8 +243,21 @@ def preflight(with_wheel=True):
         raise RuntimeError('Build and install wheel/ first, or pass --without-wheel.')
 
 
+def resolve_outputs(options):
+    """Use KDE's display priority, with explicit names taking precedence."""
+    options = dict(options)
+    outputs = json.loads(run('kscreen-doctor', '-j'))['outputs']
+    outputs = sorted((o for o in outputs if o['enabled'] and o['connected']), key=lambda o: o['priority'])
+    if not options['primary_output'] and outputs:
+        options['primary_output'] = outputs[0]['name']
+    if not options['secondary_output']:
+        options['secondary_output'] = next((o['name'] for o in outputs if o['name'] != options['primary_output']), options['primary_output'])
+    return options
+
+
 def apply(options, config, data, state, with_wheel=True, panel=True):
     preflight(with_wheel)
+    options = resolve_outputs(options)
     files = payload(options, data)
     fragments = json.loads((ROOT / 'config.json').read_text())
     fragments['kwinrc']['Plugins'][WHEEL + 'Enabled'] = str(with_wheel).lower()
@@ -257,8 +288,7 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
         kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', name)
     bindings = [(c, n, seq) for (c, n), seq in shortcut_ids().items()]
     bindings += [('kwin', 'KdeHyprLaunch' + name, seq) for name, seq in KEYS.items()]
-    bindings += [('kwin', 'KdeHyprDesktop' + str(n), 'Meta+' + str(n % 10)) for n in range(1, 11)]
-    bindings += [('kwin', 'KdeHyprSendDesktop' + str(n), 'Meta+Shift+' + str(n % 10)) for n in range(6, 11)]
+    bindings += workspace_shortcuts()
     bindings += [('plasmashell', 'graphite-notifications', 'Meta+A'), ('plasmashell', 'graphite-tray', 'Meta+X')]
     clear_conflicts(bindings)
     for path, content in files.items():
@@ -273,12 +303,14 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
     one_shot((ROOT / 'templates/five-desktops.js').read_text(), data)
     kwin('/KWin', 'org.kde.KWin.reconfigure')
     kwin('/Scripting', 'org.kde.kwin.Scripting.start')
+    set_workspace_shortcuts()
     if with_wheel:
         if kwin('/Effects', 'org.kde.kwin.Effects.isEffectLoaded', WHEEL) != '(true,)':
             assert kwin('/Effects', 'org.kde.kwin.Effects.loadEffect', WHEEL) == '(true,)'
     if panel:
         script = (ROOT / 'templates/panel.js').read_text().replace('@@PANEL_HEIGHT@@', str(options['panel_height']))
         script = script.replace('@@APPLICATION_TRAY_IDS@@', json.dumps(tray_ids()))
+        script = script.replace('@@PRIMARY_OUTPUT@@', json.dumps(options['primary_output']))
         result = dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', script)
         if any(error in result for error in ['Error:', 'TypeError', 'ReferenceError']):
             raise RuntimeError(result)
@@ -314,7 +346,13 @@ def check(with_wheel=True):
         actual = dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.shortcut', ids)
         if str(QKeySequence(sequence)[0].toCombined()) not in actual:
             raise RuntimeError(f'Shortcut is not registered: {sequence}')
-    print('Scripts, five desktops and 15 application shortcuts verified.')
+    for component, name, sequence in workspace_shortcuts():
+        key = QKeySequence(sequence)[0].toCombined()
+        reply = dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.action', str(key))
+        owner = ast.literal_eval(re.sub(r'@as\s*', '', reply))[0]
+        if owner[:2] != [component, name]:
+            raise RuntimeError(f'Workspace shortcut has the wrong handler: {sequence}')
+    print('Scripts, five desktops, 15 application shortcuts and 20 workspace shortcuts verified.')
 
 
 def restore(path):

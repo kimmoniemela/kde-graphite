@@ -8,11 +8,9 @@ function configurePanel(p, primary) {
     p.floating = false;
     p.opacity = 'opaque';
     for (var w of p.widgets()) w.remove();
-    var pager = p.addWidget('org.kde.plasma.pager');
+    var pager = p.addWidget('org.kde.graphite.workspaces');
     pager.currentConfigGroup = ['General'];
-    pager.writeConfig('displayedText', 1);
-    pager.writeConfig('showOnlyCurrentScreen', true);
-    pager.writeConfig('showWindowIcons', false);
+    pager.writeConfig('primaryOutput', @@PRIMARY_OUTPUT@@);
     var tasks = p.addWidget('org.kde.plasma.taskmanager');
     tasks.currentConfigGroup = ['General'];
     tasks.writeConfig('launchers', []);

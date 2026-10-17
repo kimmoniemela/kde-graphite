@@ -30,9 +30,9 @@ hardware and accessibility shortcuts remain available.
 | Super+F | Fullscreen |
 | Alt+Tab / Super+Tab | Window switcher |
 | Super+1–5 | Primary monitor workspaces 1–5 |
-| Super+6–0 | Secondary monitor workspaces 1–5 |
-| Super+Shift+1–5 | Send window to workspace 1–5 on its current monitor |
-| Super+Shift+6–0 | Send window to secondary monitor workspace 1–5 |
+| Super+6–0 | Secondary monitor workspaces 6–10 |
+| Super+Shift+1–5 | Send window to primary monitor workspace 1–5 |
+| Super+Shift+6–0 | Send window to secondary monitor workspace 6–10 |
 | Super+Ctrl+1–5 | Workspace on focused monitor |
 | Super+Ctrl+Left / Right | Previous / next workspace |
 | Super+Ctrl+Shift+Left / Right | Send window to previous / next workspace |
@@ -52,3 +52,9 @@ hardware and accessibility shortcuts remain available.
 The scratchpad uses minimized floating windows, not a separate desktop. Its
 membership lasts for the KDE session. Super+J rotates the whole tile layout;
 it does not implement Hyprland's per-container split toggle.
+
+Each monitor has five independent KDE desktops. The bars label them 1–5 on
+the primary display and 6–10 on the secondary; key 0 means workspace 10.
+The display order comes from KDE settings at installation, or the explicit
+`primary_output` and `secondary_output` overrides. With one connected display,
+both number banks target its five workspaces; its bar shows 1–5.

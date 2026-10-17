@@ -1968,10 +1968,14 @@ class TilingController {
         this.engine.arrange(ctx);
     }
     onWindowSkipPagerChanged(ctx, window, skipPager) {
-        if (skipPager)
+        if (skipPager) {
+            window.beforeSkipPagerState = window.state;
             window.state = WindowState.Floating;
-        else
-            window.state = WindowState.Undecided;
+        } else {
+            window.state = window.beforeSkipPagerState === undefined
+                ? WindowState.Undecided : window.beforeSkipPagerState;
+            delete window.beforeSkipPagerState;
+        }
         this.engine.arrange(ctx);
     }
     onWindowRemoved(ctx, window) {

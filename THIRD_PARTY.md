@@ -6,6 +6,7 @@
 release commit `1d7fd74`, with local changes:
 
 - Resolve the current desktop separately for each output on KWin 6.7.
+- Preserve floating or tiled state after temporary skip-pager transfers.
 - Leave default shortcuts unbound; the installer applies the selected mappings.
 
 Upstream: <https://codeberg.org/anametologin/Krohnkite>
