@@ -1,0 +1,18 @@
+{
+  "KPlugin": {
+    "Authors": [
+      {
+        "Name": "Local user"
+      }
+    ],
+    "Category": "Window Management",
+    "Description": "KDE-only Super, Ctrl and Shift mouse-wheel workspace/monitor controls",
+    "EnabledByDefault": false,
+    "Id": "kwin_hypr_scroll_desktop",
+    "License": "GPL",
+    "Name": "Graphite workspace scroll"
+  },
+  "org.kde.kwin.effect": {
+    "exclusiveGroup": ""
+  }
+}

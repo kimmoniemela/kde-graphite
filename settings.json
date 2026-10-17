@@ -1,0 +1,15 @@
+{
+  "font": "FiraCode Nerd Font Mono",
+  "font_size": 10,
+  "panel_height": 28,
+  "primary_output": "",
+  "secondary_output": "",
+  "applications": {
+    "Terminal": ["kitty"],
+    "Files": ["nautilus"],
+    "Editor": ["gnome-text-editor", "--new-window"],
+    "Calculator": ["gnome-calculator"],
+    "Browser": ["firefox"],
+    "ProcessMonitor": ["kitty", "-e", "btop"]
+  }
+}

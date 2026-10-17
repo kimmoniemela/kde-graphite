@@ -1,0 +1,88 @@
+{
+  "kwinrc": {
+    "Windows": {
+      "AutoRaise": "false",
+      "BorderlessMaximizedWindows": "true",
+      "DelayFocusInterval": "150",
+      "FocusPolicy": "FocusFollowsMouse",
+      "PerOutputVirtualDesktops": "true"
+    },
+    "org.kde.kdecoration2": {
+      "BorderSize": "Tiny",
+      "BorderSizeAuto": "false",
+      "ButtonsOnLeft": "",
+      "ButtonsOnRight": "X"
+    },
+    "Plugins": {
+      "blurEnabled": "false",
+      "contrastEnabled": "false",
+      "fadeEnabled": "false",
+      "fadedesktopEnabled": "false",
+      "fadingpopupsEnabled": "false",
+      "fullscreenEnabled": "false",
+      "magicLampEnabled": "false",
+      "maximizeEnabled": "false",
+      "scaleEnabled": "false",
+      "slideEnabled": "false",
+      "slidingnotificationsEnabled": "false",
+      "slidingpopupsEnabled": "false",
+      "squashEnabled": "false",
+      "windowapertureEnabled": "false",
+      "wobblywindowsEnabled": "false",
+      "krohnkiteEnabled": "true",
+      "kde-hypr-bridgeEnabled": "true",
+      "kde-hypr-launchers-v2Enabled": "true",
+      "kwin_hypr_scroll_desktopEnabled": "true"
+    },
+    "Script-krohnkite": {
+      "adjustLayout": "true",
+      "adjustLayoutLive": "true",
+      "floatSkipPagerWindows": "true",
+      "floatUtility": "true",
+      "floatingClass": "gnome-calculator,org.gnome.Calculator",
+      "keepTilingOnDrag": "true",
+      "layoutPerActivity": "true",
+      "layoutPerDesktop": "true",
+      "noTileBorder": "true",
+      "notificationDuration": "0",
+      "screenDefaultLayout": ":tile",
+      "screenGapBetween": "6",
+      "screenGapBottom": "6",
+      "screenGapLeft": "6",
+      "screenGapRight": "6",
+      "screenGapTop": "6",
+      "soleWindowNoBorders": "false",
+      "tileLayoutOrder": "1"
+    }
+  },
+  "breezerc": {
+    "Common": {
+      "ButtonSize": "ButtonSmall",
+      "DrawBackgroundGradient": "false",
+      "DrawBorderOnMaximizedWindows": "false",
+      "DrawTitleBarSeparator": "false",
+      "OutlineCloseButton": "false",
+      "ShadowSize": "ShadowNone",
+      "ShadowStrength": "0",
+      "TitleAlignment": "AlignLeft"
+    }
+  },
+  "kscreenlockerrc": {
+    "Greeter": {
+      "WallpaperPlugin": "org.kde.color"
+    },
+    "Greeter][LnF][General": {
+      "alwaysShowClock": "true",
+      "hideClockWhenIdle": "false",
+      "showMediaControls": "false"
+    },
+    "Greeter][Wallpaper][org.kde.color][General": {
+      "Color": "#111416"
+    }
+  },
+  "kded5rc": {
+    "Module-gtkconfig": {
+      "autoload": "false"
+    }
+  }
+}
