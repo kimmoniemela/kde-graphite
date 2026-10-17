@@ -106,21 +106,42 @@ To use Kitty, set `"Terminal": ["kitty"]`. Empty output names follow KDE's
 priority at installation. Clear old monitor names before moving to another
 machine. The installed launchers keep using the destination machine's commands.
 
-## Tiling and restore
+## Tiling
+
+Kröhnkite is the only automatic tiler bundled with Graphite. The full installer
+installs and enables a locally patched copy; appearance-only installation and
+the native Global Theme package do not install it.
+
+For ordinary floating window management:
 
 ```sh
 python3 install.py tiling off
+```
+
+To resume automatic arrangement:
+
+```sh
 python3 install.py tiling on
+```
+
+These commands save the mode without unloading the script. Allow roughly half
+a second for it to apply. Windows keep their last geometry when suspended;
+enabling tiling arranges them again. All normal windows retain minimize,
+maximize and close controls.
+
+To disable the script itself, uncheck **Kröhnkite** in System Settings → Window
+Management → KWin Scripts and apply. To use the CLI again, enable the script
+there first. Workspace and application shortcuts remain independent; tiling
+shortcuts are inactive while tiling is off. Super+Alt+Space toggles floating for
+one window while tiling is active. See [tiling](docs/tiling.md) for configuration
+and troubleshooting.
+
+## Restore
+
+```sh
 python3 install.py restore --dry-run
 python3 install.py restore
 ```
-
-The command above suspends automatic arrangement without unloading Kröhnkite.
-Unchecking Kröhnkite in KWin Scripts settings unloads it and disconnects its
-window handlers. Both modes leave windows free to move, resize and maximize;
-existing windows retain their last positions. After updating script files,
-log out and back in before testing the new behavior.
-Super+Alt+Space floats one window. All normal windows keep their mouse controls.
 
 Touched files are backed up under `~/.local/state/kde-graphite/backups/`.
 Restore uses the latest backup; pass a backup path to select another. Log out

@@ -11,13 +11,15 @@ release commit `1d7fd74`, with local changes:
   including windows that start floating and script reloads. Restore normal
   titlebars on script unload.
 
-The installer versions the QML entry point and imported JavaScript filenames
-to bypass Qt’s session cache when updating the tiler.
 - Respect the configured border preference in maximized tile layouts.
 - Leave default shortcuts unbound; the installer applies the selected mappings.
 - Suspend tiling through a runtime setting, avoiding script reloads when changing modes.
 - Disconnect window/workspace signals on script destruction and ignore pending callbacks after shutdown.
 - Ignore interactive window management callbacks while suspended; poll fresh runtime and plugin settings.
+
+The installer versions the QML entry point and imported JavaScript filenames
+to avoid reusing cached module URLs. Script updates still require a new KDE
+login; the installer does not unload/reload the running tiler.
 
 Upstream: <https://codeberg.org/anametologin/Krohnkite>
 

@@ -54,6 +54,12 @@ The scratchpad uses minimized floating windows, not a separate desktop. Its
 membership lasts for the KDE session. Super+J rotates the whole tile layout;
 it does not implement Hyprland's per-container split toggle.
 
+Directional focus, tile movement, floating toggle and layout rotation belong
+to Kröhnkite. They are inactive when tiling is suspended or the script is
+disabled; KDE quick-tiling bindings are not restored automatically. Workspace,
+launcher, maximize and fullscreen bindings remain available. See
+[tiling](tiling.md) for enabling, suspending and disabling the script.
+
 Each monitor has five independent KDE desktops. The bars label them 1–5 on
 the primary display and 6–10 on the secondary; key 0 means workspace 10.
 The display order comes from KDE settings at installation, or the explicit

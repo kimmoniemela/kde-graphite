@@ -9,7 +9,7 @@ script. The complete keyboard/tiling workflow uses the following components.
 | `kde-hypr-bridge` | Monitor-aware workspace switching, window moves and scratchpad | Yes, for the current 1–5 / 6–10 workspace model. |
 | `kde-hypr-launchers-v2` | Application shortcuts | Yes, for the configured launch keys. |
 | `graphite-window-controls` | Restore minimize, maximize and close controls on normal windows | Yes, for the requested window-button behavior. |
-| `org.kde.graphite.workspaces` | Display each monitor's workspace numbers and selection | Yes, for matching bar labels and keyboard destinations. |
+| `org.kde.graphite.workspaces` | Display each monitor's workspace numbers, selection and occupied state | Yes, for matching bar labels and keyboard destinations. |
 | `workspace-keys.py` | Adapt shifted number-row shortcuts to the active keyboard layout | Yes, for Super+Shift+number on layouts such as Finnish and US. |
 | `launch-app.py`, `pick-color.py`, `wallpaper-settings.py` | Run application, color-picker and wallpaper shortcuts | Yes, for those bindings. |
 | `kwin_hypr_scroll_desktop` | Super+wheel workspace actions | Optional native effect. |
@@ -28,6 +28,10 @@ Kröhnkite disconnects workspace/window signals during destruction and rejects
 pending callbacks after shutdown. Its suspended runtime mode also ignores move,
 resize and geometry-enforcement callbacks. No companion workspace or launcher
 script enforces window size.
+
+The CLI suspends the loaded tiler; KWin Scripts settings can disable the script
+itself. Neither action disables workspace routing or application shortcuts.
+See [tiling](tiling.md) for the controls and their limits.
 
 Script updates take effect on a new KDE login. The current session can retain
 old JavaScript callbacks; reloads of the shared QML engine have previously
