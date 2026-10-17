@@ -2,7 +2,7 @@
   "kwinrc": {
     "Windows": {
       "AutoRaise": "false",
-      "BorderlessMaximizedWindows": "true",
+      "BorderlessMaximizedWindows": "false",
       "DelayFocusInterval": "150",
       "FocusPolicy": "FocusFollowsMouse",
       "PerOutputVirtualDesktops": "true"
@@ -11,7 +11,7 @@
       "BorderSize": "Tiny",
       "BorderSizeAuto": "false",
       "ButtonsOnLeft": "",
-      "ButtonsOnRight": "X"
+      "ButtonsOnRight": "IAX"
     },
     "Plugins": {
       "blurEnabled": "false",

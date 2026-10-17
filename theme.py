@@ -90,6 +90,7 @@ def install_theme(options, config, data, state, api):
     appearance = {name: fragments[name] for name in ['breezerc', 'kscreenlockerrc', 'kded5rc']}
     appearance['kwinrc'] = {'org.kde.kdecoration2': {**kwin['org.kde.kdecoration2'],
                           'library': 'org.kde.breeze', 'theme': 'Breeze'},
+                          'Windows': {'BorderlessMaximizedWindows': 'false'},
                           'Plugins': {k: v for k, v in kwin['Plugins'].items()
                                       if k.endswith('Enabled') and v == 'false'}}
     palette = api.read_config(ROOT / 'assets/color-schemes/TerminalGraphite.colors')

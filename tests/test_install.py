@@ -48,6 +48,14 @@ class InstallTests(unittest.TestCase):
         qml = files[destination / 'kwin/scripts/kde-hypr-launchers-v2/contents/ui/main.qml'].decode()
         self.assertNotIn('@@', qml)
         self.assertIn("'/tmp/a different home/data/kde-graphite/runtime/launch-app.py'", qml)
+        tiler = destination / 'kwin/scripts/krohnkite'
+        metadata = json.loads(files[tiler / 'metadata.json'])
+        entry = tiler / 'contents' / metadata['X-Plasma-MainScript']
+        self.assertIn(entry, files)
+        self.assertNotIn(b'../code/script.js', files[entry])
+        import re
+        imported = re.search(rb'"../code/([^\"]+)"', files[entry]).group(1).decode()
+        self.assertIn(tiler / 'contents/code' / imported, files)
         for path, content in files.items():
             self.assertTrue(path.is_relative_to(destination))
             if path.suffix in ['.qml', '.js', '.py', '.json']:

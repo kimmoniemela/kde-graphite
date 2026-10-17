@@ -54,6 +54,13 @@ Item {
 
         (new K.KWinDriver(api)).main();
     }
+    Component.onDestruction: {
+        // Also restore controls when tiling is disabled from System Settings.
+        for (const window of Workspace.stackingOrder) {
+            if (window && !window.deleted && window.normalWindow && !window.fullScreen)
+                window.noBorder = false;
+        }
+    }
     Loader {
         id: shortcutsLoader;
 

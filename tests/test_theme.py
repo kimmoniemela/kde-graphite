@@ -56,6 +56,8 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(kwin['Script-kde-hypr-bridge']['PrimaryOutput'], 'DP-9')
             self.assertEqual(kwin['Windows']['PerOutputVirtualDesktops'], 'true')
             self.assertEqual(kwin['Desktops']['Number'], '5')
+            self.assertEqual(kwin['org.kde.kdecoration2']['ButtonsOnRight'], 'IAX')
+            self.assertEqual(kwin['Windows']['BorderlessMaximizedWindows'], 'false')
             self.assertEqual(protected, install.protected_hashes(config))
             self.assertEqual(install.read_config(config / 'kdeglobals')['KDE']['LookAndFeelPackage'], theme.THEME_ID)
             self.assertTrue((data / 'plasma/look-and-feel' / theme.THEME_ID / 'metadata.json').exists())

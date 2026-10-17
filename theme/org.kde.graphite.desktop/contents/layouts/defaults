@@ -1,6 +1,6 @@
 [kwinrc][org.kde.kdecoration2]
 ButtonsOnLeft=
-ButtonsOnRight=X
+ButtonsOnRight=IAX
 
 [kwinrc][Windows]
-BorderlessMaximizedWindows=true
+BorderlessMaximizedWindows=false

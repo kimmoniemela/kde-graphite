@@ -104,6 +104,18 @@ def payload(options, data):
     for source in (ROOT / 'vendor/krohnkite').rglob('*'):
         if source.is_file():
             files[scripts / 'krohnkite' / source.relative_to(ROOT / 'vendor/krohnkite')] = source.read_bytes()
+    # Qt caches imported JavaScript by URL for the lifetime of the session.
+    # Version the entry point and imported module so updates work without logout.
+    krohnkite = scripts / 'krohnkite'
+    script = files[krohnkite / 'contents/code/script.js']
+    main_qml = files[krohnkite / 'contents/ui/main.qml']
+    version = hashlib.sha256(script + main_qml).hexdigest()[:12]
+    files[krohnkite / f'contents/code/script-{version}.js'] = script
+    files[krohnkite / f'contents/ui/main-{version}.qml'] = main_qml.replace(b'../code/script.js', f'../code/script-{version}.js'.encode())
+    metadata_path = krohnkite / 'metadata.json'
+    metadata = json.loads(files[metadata_path])
+    metadata['X-Plasma-MainScript'] = f'ui/main-{version}.qml'
+    files[metadata_path] = (json.dumps(metadata, indent=2) + '\n').encode()
     for name, api, main in [('kde-hypr-bridge', 'javascript', 'code/main.js'),
                             ('kde-hypr-launchers-v2', 'declarativescript', 'ui/main.qml')]:
         metadata = {'KPackageStructure': 'KWin/Script', 'KPlugin': {'Id': name,
@@ -164,6 +176,32 @@ def one_shot(code, data):
     index = ast.literal_eval(kwin('/Scripting', 'org.kde.kwin.Scripting.loadScript', str(path), name))[0]
     try:
         kwin(f'/Scripting/Script{index}', 'org.kde.kwin.Script.run')
+    finally:
+        kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', name)
+
+
+def restore_window_decorations(data):
+    """Restore normal titlebars after unloading the tiler."""
+    path = data / 'kde-graphite/runtime/restore-decorations.qml'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("""import QtQuick
+import org.kde.kwin
+Item {
+    Component.onCompleted: {
+        for (const window of Workspace.stackingOrder) {
+            if (window.normalWindow && !window.specialWindow && !window.fullScreen)
+                window.noBorder = false;
+        }
+    }
+}
+""")
+    name = 'graphite-restore-decorations-' + uuid.uuid4().hex
+    index = ast.literal_eval(kwin('/Scripting', 'org.kde.kwin.Scripting.loadDeclarativeScript', str(path), name))[0]
+    try:
+        kwin(f'/Scripting/Script{index}', 'org.kde.kwin.Script.run')
+        import time
+        # Declarative scripts load asynchronously; keep the helper alive through completion.
+        time.sleep(1)
     finally:
         kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', name)
 
@@ -424,8 +462,9 @@ def main():
             parser.error('Use: install.py tiling on|off')
         kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', 'krohnkite')
         run('kwriteconfig6', '--file', 'kwinrc', '--group', 'Plugins', '--key', 'krohnkiteEnabled', str(args.value == 'on').lower())
+        kwin('/KWin', 'org.kde.KWin.reconfigure')
         if args.value == 'off':
-            one_shot('for(const w of workspace.windowList()){if(!w.specialWindow)w.noBorder=false;}', data)
+            restore_window_decorations(data)
         else:
             kwin('/Scripting', 'org.kde.kwin.Scripting.start')
         print('Automatic tiling ' + args.value + '.')

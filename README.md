@@ -136,7 +136,9 @@ python3 install.py tiling on
 
 Alternatively, toggle Krohnkite in System Settings → Window Management → KWin
 Scripts. Super+Alt+Space floats one window. Colors, launch shortcuts and
-workspaces do not depend on tiling.
+workspaces do not depend on tiling. Floating windows and windows with tiling
+disabled have minimize, maximize/restore and close buttons. Maximized windows
+retain their titlebar controls.
 
 ## Restore
 

@@ -1796,7 +1796,9 @@ class KWinWindow {
             if (noBorder)
                 this.window.noBorder = true;
             else if (this.noBorderManaged)
-                this.window.noBorder = this.noBorderOriginal;
+                // A script reload may have observed an already borderless tile.
+                // Normal floating windows must regain their titlebar controls.
+                this.window.noBorder = this.window.normalWindow ? false : this.noBorderOriginal;
             this.noBorderManaged = noBorder;
         }
         if (windowLayer !== undefined) {

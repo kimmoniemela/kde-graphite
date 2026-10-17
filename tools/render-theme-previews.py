@@ -32,6 +32,8 @@ def window(p, x, y, width, height, title):
     p.setPen(QPen(QColor(LINE), 1))
     p.drawRect(QRectF(x, y, width, height))
     text(p, x + 16, y + 21, title, 11, MUTED)
+    text(p, x + width - 79, y + 21, '−', 12, MUTED)
+    text(p, x + width - 52, y + 21, '□', 11, MUTED)
     text(p, x + width - 25, y + 21, '×', 12, MUTED)
 
 
