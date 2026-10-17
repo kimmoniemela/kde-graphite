@@ -15,6 +15,7 @@ The installer versions the QML entry point and imported JavaScript filenames
 to bypass Qt’s session cache when updating the tiler.
 - Respect the configured border preference in maximized tile layouts.
 - Leave default shortcuts unbound; the installer applies the selected mappings.
+- Suspend tiling through a runtime setting, avoiding script reloads when changing modes.
 
 Upstream: <https://codeberg.org/anametologin/Krohnkite>
 

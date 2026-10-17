@@ -147,12 +147,8 @@ the wheel effect that a Global Theme package alone does not install.
 
 ## Visible tiling control
 
-Both top bars have a compact **TILE ON / TILE OFF** button before the system tray.
-Clicking either button switches automatic tiling across all monitors and saves
-the choice for the next login. Both buttons follow KWin's running state, including
-changes made in KWin Scripts settings. Window controls stay visible in both modes.
-The command-line tiling control uses the same helper. The installation check
-accepts deliberately disabled tiling.
+A **TILE ON / TILE OFF** button was added to both bars, then removed at the
+user's request. Tiling remains controllable through the command-line helper.
 
 ## Files and installation
 
@@ -161,7 +157,7 @@ accepts deliberately disabled tiling.
 | `~/kde-graphite/` | Project source and documentation |
 | `~/.config/` | Selected KDE settings |
 | `~/.local/share/plasma/look-and-feel/org.kde.graphite.desktop/` | Installed Global Theme |
-| `~/.local/share/plasma/plasmoids/` | Graphite workspace and tiling widgets |
+| `~/.local/share/plasma/plasmoids/` | Graphite workspace widget |
 | `~/.local/share/kwin/scripts/` | Tiler, workspace, launcher and window-control scripts |
 | `~/.local/share/kde-graphite/runtime/` | Generated runtime helpers |
 | `~/.local/state/kde-graphite/backups/` | Local installation backups |

@@ -30,8 +30,6 @@ function configurePanel(p, primary) {
     tasks.writeConfig('indicateAudioStreams', false);
     tasks.writeConfig('tooltipControls', false);
     p.addWidget('org.kde.plasma.panelspacer');
-    if (typeof knownWidgetTypes === 'undefined' || knownWidgetTypes.includes('org.kde.graphite.tiling'))
-        p.addWidget('org.kde.graphite.tiling');
     var tray = p.addWidget('org.kde.plasma.systemtray');
     tray.currentConfigGroup = ['General'];
     tray.writeConfig('shownItems', ['org.kde.plasma.networkmanagement', 'org.kde.plasma.volume', 'org.kde.plasma.battery']);

@@ -170,8 +170,8 @@ function verify() {
         throw Error('Expected one panel per screen');
     if (bars.filter(p => p.items.some(w => w.globalShortcut === 'Meta+X')).length !== 1)
         throw Error('Expected exactly one tray keyboard shortcut');
-    if (bars.some(p => p.items.filter(w => w.type === 'org.kde.graphite.tiling').length !== 1))
-        throw Error('Expected one tiling toggle on each bar');
+    if (bars.some(p => p.items.some(w => w.type === 'org.kde.graphite.tiling')))
+        throw Error('Unexpected tiling toggle');
 }
 """
         # A reapply must reuse both bars; a live addition must leave the original intact.

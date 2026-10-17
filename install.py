@@ -374,7 +374,7 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
 def check(with_wheel=True):
     for name in SCRIPTS:
         loaded = kwin('/Scripting', 'org.kde.kwin.Scripting.isScriptLoaded', name) == '(true,)'
-        expected = tiling_control().configured() if name == 'krohnkite' else True
+        expected = True  # The tiler stays loaded while its runtime mode is off.
         if loaded != expected:
             raise RuntimeError(f'Script state does not match configuration: {name}')
     count = kwin('/VirtualDesktopManager', 'org.freedesktop.DBus.Properties.Get', 'org.kde.KWin.VirtualDesktopManager', 'count')
@@ -422,7 +422,7 @@ def restore_files(path):
 
 def tiling_control():
     import importlib.util
-    spec = importlib.util.spec_from_file_location('graphite_tiling', ROOT / 'widgets/org.kde.graphite.tiling/contents/code/tiling-control.py')
+    spec = importlib.util.spec_from_file_location('graphite_tiling', ROOT / 'scripts/tiling-control.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

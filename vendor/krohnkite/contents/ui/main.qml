@@ -28,6 +28,32 @@ import "../code/script.js" as K
 
 Item {
     id: scriptRoot
+    property var driver: null
+    property bool runtimeEnabled: KWin.readConfig("runtimeEnabled", true)
+    function updateMode(value) {
+        if (value === runtimeEnabled) return;
+        runtimeEnabled = value;
+        if (driver) driver.setRuntimeEnabled(value);
+        else K.setGraphiteTilingEnabled(value);
+        if (!value) {
+            for (const w of Workspace.stackingOrder) {
+                if (w && !w.deleted && w.normalWindow && !w.fullScreen) w.noBorder = false;
+            }
+        }
+    }
+    Plasma5Support.DataSource {
+        id: modeReader
+        engine: "executable"
+        connectedSources: []
+        onNewData: function(source, data) {
+            disconnectSource(source);
+            if (data["exit code"] === 0) scriptRoot.updateMode(data.stdout.trim() !== "false");
+        }
+    }
+    Timer {
+        interval: 500; running: true; repeat: true; triggeredOnStart: true
+        onTriggered: modeReader.connectSource("kreadconfig6 --file kwinrc --group Script-krohnkite --key runtimeEnabled --default true")
+    }
 
     TaskManager.ActivityInfo {
         id: activityInfo
@@ -52,7 +78,9 @@ Item {
             "shortcuts": shortcutsLoader.item
         };
 
-        (new K.KWinDriver(api)).main();
+        K.setGraphiteTilingEnabled(runtimeEnabled);
+        driver = new K.KWinDriver(api);
+        driver.main();
     }
     Component.onDestruction: {
         // Also restore controls when tiling is disabled from System Settings.

@@ -129,10 +129,6 @@ Super+Ctrl+1–5 selects a workspace on the focused monitor. See [shortcuts](doc
 
 ## Tiling
 
-Click **TILE ON / TILE OFF** beside the tray on either top bar to switch automatic
-tiling for all monitors. Both indicators follow the running KWin script, including
-changes made through System Settings. The choice persists across logins.
-
 ```sh
 python3 install.py tiling off
 python3 install.py tiling on
@@ -176,3 +172,21 @@ The existing desktop was tested for repeated terminal launches, launcher
 reloads, tiling, floating, scratchpad and independent workspace switching. The
 portable installer has been tested for rendering, config merging and backup
 restoration; a clean-machine installation still needs testing.
+
+## Crash recovery, 17 October 2026
+
+The 14:37:59 crash was a KWin SIGSEGV in Qt QML's JavaScript garbage collector
+(`collectFromJSStack`), reached from `DeclarativeScript::createComponent` while
+starting scripts. The tiling button's unload/reload cycle is the likely trigger;
+the available stack does not identify the initiating script conclusively.
+
+The command-line tiling helper changes a runtime setting. Kröhnkite stays loaded, keeps
+tracking windows, and suspends geometry changes while off. Re-enabling restores
+window states and arranges the layout. Neither action reloads scripts or
+reconfigures KWin. A 500 ms reader picks up mode changes.
+The top-bar tiling button was subsequently removed.
+
+The workspace widget uses TaskManager's public desktop information and the
+existing workspace shortcuts, avoiding the native pager's private import.
+Recovery was verified with free window movement while off, layout restoration
+while on, three further toggle cycles, and the project test suite.

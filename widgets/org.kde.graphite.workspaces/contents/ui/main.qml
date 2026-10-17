@@ -4,7 +4,8 @@ import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
-import plasma.applet.org.kde.plasma.pager
+import org.kde.taskmanager as TaskManager
+import org.kde.plasma.plasma5support as Plasma5Support
 
 PlasmoidItem {
     id: root
@@ -16,14 +17,27 @@ PlasmoidItem {
     Layout.fillHeight: true
     Plasmoid.status: PlasmaCore.Types.ActiveStatus
 
-    PagerModel {
-        id: pager
-        enabled: true
-        showDesktop: false
-        showOnlyCurrentScreen: true
-        screenName: root.Screen.name
-        screenGeometry: Plasmoid.containment.screenGeometry
-        pagerType: PagerModel.VirtualDesktops
+    TaskManager.VirtualDesktopInfo { id: desktops }
+    property int currentPage: 0
+    function refreshPage() {
+        currentPage = desktops.desktopIds.indexOf(desktops.currentDesktopByScreenName(root.Screen.name));
+    }
+    function changePage(index) {
+        if (index < 0 || index >= 5) return;
+        const number = root.offset + index + 1;
+        commands.connectSource("gdbus call --session --dest org.kde.kglobalaccel --object-path /component/kwin --method org.kde.kglobalaccel.Component.invokeShortcut KdeHyprDesktop" + number);
+    }
+    Connections {
+        target: desktops
+        function onCurrentDesktopForScreenChanged(screenName) { root.refreshPage(); }
+        function onDesktopIdsChanged() { root.refreshPage(); }
+    }
+    Component.onCompleted: refreshPage()
+    Plasma5Support.DataSource {
+        id: commands
+        engine: "executable"
+        connectedSources: []
+        onNewData: function(source, data) { disconnectSource(source); }
     }
 
     fullRepresentation: Row {
@@ -34,7 +48,7 @@ PlasmoidItem {
                 id: button
                 required property int index
                 readonly property int number: root.offset + index + 1
-                readonly property bool selected: pager.currentPage === index
+                readonly property bool selected: root.currentPage === index
                 width: 28
                 height: root.height
                 color: selected ? Kirigami.Theme.highlightColor : (mouse.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
@@ -48,16 +62,16 @@ PlasmoidItem {
                     id: mouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: pager.changePage(button.index)
+                    onClicked: root.changePage(button.index)
                     onWheel: event => {
                         const direction = event.angleDelta.y > 0 ? -1 : 1;
-                        pager.changePage(Math.max(0, Math.min(4, pager.currentPage + direction)));
+                        root.changePage(Math.max(0, Math.min(4, root.currentPage + direction)));
                         event.accepted = true;
                     }
                 }
                 Accessible.role: Accessible.Button
                 Accessible.name: "Workspace " + number + " on " + root.Screen.name
-                Accessible.onPressAction: pager.changePage(index)
+                Accessible.onPressAction: root.changePage(index)
             }
         }
     }

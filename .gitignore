@@ -4,3 +4,4 @@ build/
 .venv/
 settings.local.json
 *.log
+*.save

@@ -23,13 +23,13 @@ def kwin(path, method, *args):
 
 
 def enabled():
-    return kwin('/Scripting', 'org.kde.kwin.Scripting.isScriptLoaded', 'krohnkite') == '(true,)'
+    return configured() and kwin('/Scripting', 'org.kde.kwin.Scripting.isScriptLoaded', 'krohnkite') == '(true,)'
 
 
 def configured():
     config = configparser.ConfigParser(interpolation=None, strict=False)
     config.read(Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'kwinrc')
-    return config.getboolean('Plugins', 'krohnkiteEnabled', fallback=False)
+    return config.getboolean('Script-krohnkite', 'runtimeEnabled', fallback=True)
 
 
 def available():
@@ -46,13 +46,9 @@ def change(action):
     with (runtime / f'graphite-tiling-{os.getuid()}.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         target = not enabled() if action == 'toggle' else action == 'on'
-        run('kwriteconfig6', '--file', 'kwinrc', '--group', 'Plugins',
-            '--key', 'krohnkiteEnabled', str(target).lower())
-        if not target:
-            kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', 'krohnkite')
-        kwin('/KWin', 'org.kde.KWin.reconfigure')
-        if target:
-            kwin('/Scripting', 'org.kde.kwin.Scripting.start')
+        # Keep the declarative engine alive: reloading it crashed Qt's GC.
+        run('kwriteconfig6', '--file', 'kwinrc', '--group', 'Script-krohnkite',
+            '--key', 'runtimeEnabled', str(target).lower())
         deadline = time.monotonic() + 4
         while enabled() != target:
             if time.monotonic() >= deadline:

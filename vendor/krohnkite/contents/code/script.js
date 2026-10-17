@@ -112,6 +112,8 @@ const LogPartitions = {
         ],
     },
 };
+let GRAPHITE_TILING_ENABLED = true;
+function setGraphiteTilingEnabled(value) { GRAPHITE_TILING_ENABLED = value; }
 let CONFIG;
 let LOG;
 class Dock {
@@ -1297,6 +1299,20 @@ class KWinDriver {
         this.windowMap = new WrapperMap((client) => KWinWindow.generateID(client), (client) => new WindowClass(new KWinWindow(client, this.workspace)));
         this.entered = false;
     }
+    setRuntimeEnabled(value) {
+        if (!value) {
+            this.savedRuntimeStates = new Map(this.engine.windows.list.map(w => [w.id, w.state]));
+            GRAPHITE_TILING_ENABLED = false;
+            return;
+        }
+        GRAPHITE_TILING_ENABLED = true;
+        for (const window of this.engine.windows.list) {
+            window.state = this.savedRuntimeStates && this.savedRuntimeStates.has(window.id)
+                ? this.savedRuntimeStates.get(window.id)
+                : (window.shouldFloat ? WindowState.Floating : WindowState.Tiled);
+        }
+        this.enter(() => this.engine.arrange(this));
+    }
     main() {
         CONFIG = KWINCONFIG = new KWinConfig();
         LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.printConfig, undefined, `Config: ${CONFIG}`);
@@ -1318,7 +1334,7 @@ class KWinDriver {
             this.control.onWindowAdded(this, window);
             if (window.state !== WindowState.Unmanaged) {
                 this.bindWindowEvents(window, client);
-                if (client.maximizeMode > 0)
+                if (GRAPHITE_TILING_ENABLED && client.maximizeMode > 0)
                     client.setMaximize(false, false);
                 LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.newWindowAdded, "", debugWin(client), {
                     winClass: [`${client.resourceClass}`],
@@ -1785,6 +1801,7 @@ class KWinWindow {
                 matchWords(this.window.caption, KWINCONFIG.floatingTitle) >= 0;
     }
     commit(geometry, noBorder, windowLayer) {
+        if (!GRAPHITE_TILING_ENABLED) return;
         LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.window, "KwinWindow#commit", `geometry:${geometry}, noBorder:${noBorder}, windowLayer:${windowLayer}`);
         if (this.window.move || this.window.resize)
             return;
@@ -2399,6 +2416,7 @@ class TilingEngine {
         });
     }
     arrangeScreen(ctx, srf) {
+        if (!GRAPHITE_TILING_ENABLED) return;
         const layout = this.layouts.getCurrentLayout(srf);
         const visibles = this.windows.getVisibleWindows(srf);
         LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.arrangeScreen, "Begin", `layout: ${layout}, surface: ${srf}, visibles number: ${visibles.length}`);
