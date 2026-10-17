@@ -98,7 +98,7 @@ def payload(options, data):
     })
     files[runtime / 'launchers.json'] = (json.dumps(commands, indent=2) + '\n').encode()
     for source in (ROOT / 'widgets').rglob('*'):
-        if source.is_file():
+        if source.is_file() and '__pycache__' not in source.parts:
             files[data / 'plasma/plasmoids' / source.relative_to(ROOT / 'widgets')] = source.read_bytes()
     scripts = data / 'kwin/scripts'
     for source in (ROOT / 'vendor/krohnkite').rglob('*'):
@@ -373,8 +373,10 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
 
 def check(with_wheel=True):
     for name in SCRIPTS:
-        if kwin('/Scripting', 'org.kde.kwin.Scripting.isScriptLoaded', name) != '(true,)':
-            raise RuntimeError(f'Script is not loaded: {name}')
+        loaded = kwin('/Scripting', 'org.kde.kwin.Scripting.isScriptLoaded', name) == '(true,)'
+        expected = tiling_control().configured() if name == 'krohnkite' else True
+        if loaded != expected:
+            raise RuntimeError(f'Script state does not match configuration: {name}')
     count = kwin('/VirtualDesktopManager', 'org.freedesktop.DBus.Properties.Get', 'org.kde.KWin.VirtualDesktopManager', 'count')
     if 'uint32 5' not in count:
         raise RuntimeError('Expected five native desktops')
@@ -418,6 +420,14 @@ def restore_files(path):
             target.unlink()
 
 
+def tiling_control():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('graphite_tiling', ROOT / 'widgets/org.kde.graphite.tiling/contents/code/tiling-control.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', nargs='?', default='install', choices=['install', 'theme', 'build-theme', 'check', 'restore', 'tiling'])
@@ -458,16 +468,12 @@ def main():
         path = Path(args.value) if args.value else Path((state / 'kde-graphite/latest-backup').read_text().strip())
         restore(path)
     else:
-        if args.value not in ['on', 'off']:
-            parser.error('Use: install.py tiling on|off')
-        kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', 'krohnkite')
-        run('kwriteconfig6', '--file', 'kwinrc', '--group', 'Plugins', '--key', 'krohnkiteEnabled', str(args.value == 'on').lower())
-        kwin('/KWin', 'org.kde.KWin.reconfigure')
-        if args.value == 'off':
+        if args.value not in ['on', 'off', 'toggle']:
+            parser.error('Use: install.py tiling on|off|toggle')
+        active = tiling_control().change(args.value)
+        if not active:
             restore_window_decorations(data)
-        else:
-            kwin('/Scripting', 'org.kde.kwin.Scripting.start')
-        print('Automatic tiling ' + args.value + '.')
+        print('Automatic tiling ' + ('on' if active else 'off') + '.')
 
 
 if __name__ == '__main__':

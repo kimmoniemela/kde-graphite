@@ -129,6 +129,10 @@ Super+Ctrl+1–5 selects a workspace on the focused monitor. See [shortcuts](doc
 
 ## Tiling
 
+Click **TILE ON / TILE OFF** beside the tray on either top bar to switch automatic
+tiling for all monitors. Both indicators follow the running KWin script, including
+changes made through System Settings. The choice persists across logins.
+
 ```sh
 python3 install.py tiling off
 python3 install.py tiling on
