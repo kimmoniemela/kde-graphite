@@ -5,6 +5,10 @@ another user's machine without importing this machine's desktop configuration.
 Changes below affect the repository and future installations. The audit did not
 reinstall or change the current desktop.
 
+Subsequent simplification: the runtime tiling control described in this audit
+was removed. Use Kröhnkite's checkbox in KWin Scripts settings; see
+[tiling](tiling.md). The historical findings below describe the audit at that time.
+
 ## Findings and changes
 
 | Priority | Finding | Resolution |
@@ -57,9 +61,6 @@ The panel API follows [KDE's scripting documentation](https://develop.kde.org/do
 - The full setup supports one or two monitors. Output roles are selected at
   installation; docking, unplugging and changing the primary screen need a
   separate hot-plug test. Clear overrides and reinstall to resolve new roles.
-- Runtime tiling control reads a mode flag. The command confirms the saved
-  flag and that the script is loaded; it does not receive an acknowledgement
-  that the tiler has consumed the flag. Allow roughly half a second for it.
 - Restore recovers backed-up files and requires an immediate logout/login to
   replace running scripts and shortcut handlers. It is not an atomic rollback;
   later edits to backed-up files are replaced by their backed-up contents.

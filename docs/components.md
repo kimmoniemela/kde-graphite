@@ -25,13 +25,10 @@ number row, retaining the canonical Super+Shift+number bindings. When the layout
 changes, old symbol bindings are released before new ones are assigned.
 
 Kröhnkite disconnects workspace/window signals during destruction and rejects
-pending callbacks after shutdown. Its suspended runtime mode also ignores move,
-resize and geometry-enforcement callbacks. No companion workspace or launcher
-script enforces window size.
-
-The CLI suspends the loaded tiler; KWin Scripts settings can disable the script
-itself. Neither action disables workspace routing or application shortcuts.
-See [tiling](tiling.md) for the controls and their limits.
+pending callbacks after shutdown. No companion workspace or launcher script
+enforces window size. Enable or disable tiling using Kröhnkite's checkbox in
+KWin Scripts settings. Workspace routing and application shortcuts remain
+active. See [tiling](tiling.md).
 
 Script updates take effect on a new KDE login. The current session can retain
 old JavaScript callbacks; reloads of the shared QML engine have previously

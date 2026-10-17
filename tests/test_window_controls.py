@@ -11,7 +11,7 @@ class WindowControlsTests(unittest.TestCase):
     def test_normal_window_controls_restore_after_reload_or_initial_floating(self):
         source = (ROOT / 'vendor/krohnkite/contents/code/script.js').read_text()
         wrapper = source[source.index('class KWinWindow {'):source.index('function debugWin(')]
-        code = 'const LOG = null; let GRAPHITE_TILING_ENABLED = true;\n' + wrapper + """
+        code = 'const LOG = null; let GRAPHITE_SCRIPT_ACTIVE = true;\n' + wrapper + """
 const client = {normalWindow: true, noBorder: true, move: false, resize: false};
 const wrapper = Object.create(KWinWindow.prototype);
 wrapper.window = client;
@@ -28,12 +28,12 @@ wrapper.noBorderManaged = false;
 client.noBorder = true;
 wrapper.commit(undefined, false);
 if (client.noBorder) throw Error('New floating window did not regain titlebar');
-// Suspended tiling must not change window decoration or geometry.
-GRAPHITE_TILING_ENABLED = false;
+// Unloaded tiling must not change window decoration or geometry.
+GRAPHITE_SCRIPT_ACTIVE = false;
 client.noBorder = false;
 wrapper.commit({x: 1}, true);
-if (client.noBorder) throw Error('Suspended tiler changed a window');
-GRAPHITE_TILING_ENABLED = true;
+if (client.noBorder) throw Error('Unloaded tiler changed a window');
+GRAPHITE_SCRIPT_ACTIVE = true;
 // Preserve the original decoration policy for non-normal windows.
 client.normalWindow = false;
 client.noBorder = true;

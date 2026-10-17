@@ -148,7 +148,8 @@ the wheel effect that a Global Theme package alone does not install.
 ## Visible tiling control
 
 A **TILE ON / TILE OFF** button was added to both bars, then removed at the
-user's request. Tiling remains controllable through the command-line helper.
+user's request. The later Python runtime toggle was also removed; tiling is
+controlled using Kröhnkite's checkbox in KDE's KWin Scripts settings.
 
 ## Files and installation
 
@@ -159,8 +160,10 @@ marks occupied workspaces in sage, keeps the current workspace filled, and dims
 empty numbers. It reads KDE's task model for each monitor and counts minimized
 windows; it does not change workspace shortcuts or window layout.
 
-Window-management fixes added explicit Kröhnkite shutdown cleanup, guards for
-ordinary moves/resizes while suspended and fresh reads of its enabled flags.
+Window-management fixes added explicit Kröhnkite shutdown cleanup and guards
+against callbacks changing windows after shutdown. A separate runtime-suspension
+mode and polling were introduced temporarily and later removed in favor of
+KDE's standard KWin Scripts setting.
 The workspace script reuses supported timers instead of calling `deleteLater`,
 which KWin's script timer does not expose. Shifted number shortcuts now follow
 the active XKB layout, including Finnish and US. The obsolete launcher v1 was
@@ -174,8 +177,9 @@ Installation and restore defer script changes until the next login.
 This follows the 14:37:59 KWin crash on 17 October 2026: Qt QML's JavaScript
 garbage collector failed in `collectFromJSStack` through
 `DeclarativeScript::createComponent`. Script reloads were the suspected trigger.
-Runtime tiling control now keeps the engine loaded, suspends arrangement while
-off and restores layouts when enabled. The workspace widget also switched from
+A runtime toggle was added as a workaround, then removed at the user's request.
+The standard KWin Scripts checkbox is the sole tiling control; the shutdown
+fixes remain. The workspace widget also switched from
 the native pager's private import to public TaskManager desktop information.
 
 | Location | Purpose |
@@ -195,11 +199,9 @@ The relevant commands, run from the project directory, are:
 ```sh
 python3 install.py theme --dry-run # preview appearance-only installation
 python3 install.py theme           # install Graphite without replacing panels
-python3 install.py --dry-run       # preview the complete setup
+python3 install.py install --dry-run # preview the complete setup
 python3 install.py install         # install the complete setup
 python3 install.py build-theme     # build build/Graphite-1.0.0.tar.gz
-python3 install.py tiling off
-python3 install.py tiling on
 python3 install.py check
 python3 install.py restore         # restore the latest installation backup
 ```

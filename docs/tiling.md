@@ -1,45 +1,30 @@
 # Tiling
 
 Graphite uses Kröhnkite 0.9.9.2 with local patches for per-monitor desktops,
-window controls and shutdown/suspension behavior. It runs inside KWin; KDE
+window controls and shutdown behavior. It runs inside KWin; KDE
 remains the compositor and desktop. Source and provenance are in
 [`vendor/krohnkite/`](../vendor/krohnkite/) and [THIRD_PARTY.md](../THIRD_PARTY.md).
 
 `python3 install.py install` installs this copy and enables its KWin script at
 the next KDE login. `python3 install.py theme` and importing the Global Theme
-archive do not install or enable it. A previously saved suspended mode is
-retained by the full installer.
+archive do not install or enable it. Rerunning the full installer enables the
+script again; disable it in settings afterward if you want floating windows.
 
 ## Controls
 
-Run from the repository, in the target user's KDE session, without sudo:
+Open **System Settings → Window Management → KWin Scripts**:
 
-```sh
-python3 install.py tiling off
-python3 install.py tiling on
-python3 install.py tiling toggle
-```
+- Check **Kröhnkite** and click **Apply** to enable automatic tiling.
+- Uncheck **Kröhnkite** and click **Apply** for ordinary window management.
 
-`off` suspends automatic arrangement while keeping the script loaded. Windows
-retain their last positions and sizes; they can then be moved, resized and
-maximized normally. `on` arranges eligible windows again. The mode is saved in
-`kwinrc` and survives logout/login. There is no tiling toggle on the bar.
+Disabling the script disconnects its window and workspace handlers. Windows
+keep their last positions and sizes and can be moved, resized and maximized
+normally. Enabling it arranges eligible windows again. KDE saves the checkbox
+state across logins.
 
-| State | Automatic arrangement | Kröhnkite shortcuts |
-| --- | --- | --- |
-| Script enabled, runtime mode on | Active | Active |
-| Script enabled, runtime mode off | Suspended | Inactive |
-| Script disabled in KWin Scripts | Inactive | Unavailable |
-
-To disable the script, open System Settings → Window Management → KWin Scripts,
-uncheck **Kröhnkite**, and apply. Its shutdown handler disconnects window and
-workspace signals. To resume, enable it there and apply, then run
-`python3 install.py tiling on` if its saved runtime mode was off. The CLI changes
-the runtime mode; it does not enable or load a disabled script.
-
-The script polls its settings every 500 ms. CLI success confirms the saved mode
-and whether KWin reports the script loaded; it is not an acknowledgement from
-the arrangement engine. Allow roughly half a second before testing a move.
+This is the only tiling control. There is no separate runtime mode, polling
+helper, Python toggle or bar toggle. Settings saved by the former Python
+control are ignored by this version and removed during a full-install upgrade.
 
 ## Layout and shortcuts
 
@@ -55,7 +40,7 @@ scratchpad windows use the skip-pager floating exception.
 | Super+J | Rotate the layout |
 
 These bindings do not switch to KDE's native quick-tiling actions when Kröhnkite
-is suspended or disabled. Maximize/restore (Super+D), fullscreen (Super+F),
+is disabled. Maximize/restore (Super+D), fullscreen (Super+F),
 closing (Super+Q), workspace moves and application launching remain separate.
 All normal windows retain minimize, maximize/restore and close buttons,
 including tiled windows. Fullscreen hides decorations normally.
@@ -80,21 +65,19 @@ testing. Running scripts can retain old code. Repeated live unload/reload cycles
 were a suspected trigger for the recorded KWin crash; the installer defers
 script changes until the next login.
 
-For read-only checks:
+For a read-only full-setup check:
 
 ```sh
 python3 install.py check
-python3 scripts/tiling-control.py status
 ```
 
-`check` validates the full setup's configured shortcuts and loaded scripts;
-it does not test window geometry. The status helper prints JSON:
-`available` means an installed Kröhnkite package was found; `enabled` means
-runtime mode is on and KWin reports the script loaded. It does not distinguish
-an unloaded script from a deliberately suspended one when `enabled` is false.
+This checks that Kröhnkite's loaded state matches its KWin Scripts setting,
+plus the full setup's workspace and application bindings. It does not test
+window geometry. If windows still arrange themselves with Kröhnkite unchecked,
+confirm you clicked Apply and log out/back in to clear code from an older
+installation. The current shutdown behavior is covered by automated callback
+and geometry-guard tests; a settings-toggle test in a fresh graphical session
+is still needed after this update.
 
-If `tiling on` reports that KWin did not apply the requested mode, check that
-Kröhnkite is enabled in KWin Scripts and that a new login has loaded the
-installed version. The command may already have saved the requested mode.
 Replacing this copy through Get New Scripts can overwrite Graphite's patches;
 the behavior described here applies to the bundled version.

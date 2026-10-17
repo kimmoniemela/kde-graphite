@@ -112,8 +112,8 @@ const LogPartitions = {
         ],
     },
 };
-let GRAPHITE_TILING_ENABLED = true;
-function setGraphiteTilingEnabled(value) { GRAPHITE_TILING_ENABLED = value; }
+let GRAPHITE_SCRIPT_ACTIVE = true;
+function setGraphiteScriptActive(value) { GRAPHITE_SCRIPT_ACTIVE = value; }
 let CONFIG;
 let LOG;
 class Dock {
@@ -1303,25 +1303,11 @@ class KWinDriver {
     }
     shutdown() {
         this.disposed = true;
-        GRAPHITE_TILING_ENABLED = false;
+        GRAPHITE_SCRIPT_ACTIVE = false;
         for (const connection of this.connections) {
             try { connection.signal.disconnect(connection.wrapper); } catch (e) { }
         }
         this.connections = [];
-    }
-    setRuntimeEnabled(value) {
-        if (!value) {
-            this.savedRuntimeStates = new Map(this.engine.windows.list.map(w => [w.id, w.state]));
-            GRAPHITE_TILING_ENABLED = false;
-            return;
-        }
-        GRAPHITE_TILING_ENABLED = true;
-        for (const window of this.engine.windows.list) {
-            window.state = this.savedRuntimeStates && this.savedRuntimeStates.has(window.id)
-                ? this.savedRuntimeStates.get(window.id)
-                : (window.shouldFloat ? WindowState.Floating : WindowState.Tiled);
-        }
-        this.enter(() => this.engine.arrange(this));
     }
     main() {
         CONFIG = KWINCONFIG = new KWinConfig();
@@ -1344,7 +1330,7 @@ class KWinDriver {
             this.control.onWindowAdded(this, window);
             if (window.state !== WindowState.Unmanaged) {
                 this.bindWindowEvents(window, client);
-                if (GRAPHITE_TILING_ENABLED && client.maximizeMode > 0)
+                if (GRAPHITE_SCRIPT_ACTIVE && client.maximizeMode > 0)
                     client.setMaximize(false, false);
                 LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.newWindowAdded, "", debugWin(client), {
                     winClass: [`${client.resourceClass}`],
@@ -1375,7 +1361,7 @@ class KWinDriver {
     bindShortcut() {
         const callbackShortcut = (shortcut) => {
             return () => {
-                if (!GRAPHITE_TILING_ENABLED || this.disposed) return;
+                if (!GRAPHITE_SCRIPT_ACTIVE || this.disposed) return;
                 LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.shortcut, `Shortcut pressed:`, `${ShortcutsKeys[shortcut]}`);
                 this.enter(() => this.control.onShortcut(this, shortcut));
             };
@@ -1454,7 +1440,7 @@ class KWinDriver {
             .activated.connect(callbackShortcut(Shortcut.SetMaster));
         const callbackShortcutLayout = (layoutClass) => {
             return () => {
-                if (!GRAPHITE_TILING_ENABLED || this.disposed) return;
+                if (!GRAPHITE_SCRIPT_ACTIVE || this.disposed) return;
                 LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.shortcut, "shortcut layout", `${layoutClass.id}`);
                 this.enter(() => this.control.onShortcut(this, Shortcut.SetLayout, layoutClass.id));
             };
@@ -1602,7 +1588,7 @@ class KWinDriver {
             this.control.onWindowMaximizeChanged(this, window);
         });
         this.connect(client.minimizedChanged, () => {
-            if (!GRAPHITE_TILING_ENABLED) return;
+            if (!GRAPHITE_SCRIPT_ACTIVE) return;
             LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.minimizedChanged, "eventFired", `window: caption:${client.caption} internalID:${client.internalId},minimized:${client.minimized}`, { winClass: [`${client.resourceClass}`] });
             if (KWINCONFIG.preventMinimize) {
                 client.minimized = false;
@@ -1816,7 +1802,7 @@ class KWinWindow {
                 matchWords(this.window.caption, KWINCONFIG.floatingTitle) >= 0;
     }
     commit(geometry, noBorder, windowLayer) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.window, "KwinWindow#commit", `geometry:${geometry}, noBorder:${noBorder}, windowLayer:${windowLayer}`);
         if (this.window.move || this.window.resize)
             return;
@@ -1987,7 +1973,7 @@ class TilingController {
     }
     onWindowAdded(ctx, window) {
         this.engine.manage(window);
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         if (window.tileable) {
             const srf = ctx.currentSurface;
             const tiles = this.engine.windows.getVisibleTiles(srf);
@@ -2022,7 +2008,7 @@ class TilingController {
     onWindowMove(window) {
     }
     onWindowDragging(ctx, window, windowRect) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         if (this.isDragging)
             return;
         if (this.dragCompleteTime !== null &&
@@ -2044,7 +2030,7 @@ class TilingController {
         this.isDragging = false;
     }
     onWindowMoveOver(ctx, window) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         if (window.state === WindowState.Dragging) {
             window.setState(WindowState.Tiled);
             this.engine.arrange(ctx);
@@ -2075,7 +2061,7 @@ class TilingController {
     onWindowResizeStart(window) {
     }
     onWindowResize(ctx, window) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         if (CONFIG.adjustLayout &&
             CONFIG.adjustLayoutLive &&
             window.state === WindowState.Tiled) {
@@ -2088,7 +2074,7 @@ class TilingController {
         }
     }
     onWindowResizeOver(ctx, window) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         if (CONFIG.adjustLayout && window.tiled) {
             this.engine.adjustLayout(window);
             this.engine.arrange(ctx);
@@ -2107,7 +2093,7 @@ class TilingController {
         this.engine.enforceSize(ctx, window);
     }
     onWindowChanged(ctx, window, comment) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         if (window) {
             if (comment === "unminimized")
                 ctx.currentWindow = window;
@@ -2437,7 +2423,7 @@ class TilingEngine {
         });
     }
     arrangeScreen(ctx, srf) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         const layout = this.layouts.getCurrentLayout(srf);
         const visibles = this.windows.getVisibleWindows(srf);
         LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.arrangeScreen, "Begin", `layout: ${layout}, surface: ${srf}, visibles number: ${visibles.length}`);
@@ -2493,7 +2479,7 @@ class TilingEngine {
         LOG === null || LOG === void 0 ? void 0 : LOG.send(LogModules.arrangeScreen, "Finished", `${srf}`);
     }
     enforceSize(ctx, window) {
-        if (!GRAPHITE_TILING_ENABLED) return;
+        if (!GRAPHITE_SCRIPT_ACTIVE) return;
         if (window.tiled && !window.actualGeometry.equals(window.geometry))
             ctx.setTimeout(() => {
                 if (window.tiled)

@@ -112,29 +112,15 @@ Kröhnkite is the only automatic tiler bundled with Graphite. The full installer
 installs and enables a locally patched copy; appearance-only installation and
 the native Global Theme package do not install it.
 
-For ordinary floating window management:
+Open **System Settings → Window Management → KWin Scripts**. Check
+**Kröhnkite** to enable tiling, or uncheck it for ordinary window management,
+then click **Apply**. There is no separate runtime mode or Python toggle.
 
-```sh
-python3 install.py tiling off
-```
-
-To resume automatic arrangement:
-
-```sh
-python3 install.py tiling on
-```
-
-These commands save the mode without unloading the script. Allow roughly half
-a second for it to apply. Windows keep their last geometry when suspended;
-enabling tiling arranges them again. All normal windows retain minimize,
-maximize and close controls.
-
-To disable the script itself, uncheck **Kröhnkite** in System Settings → Window
-Management → KWin Scripts and apply. To use the CLI again, enable the script
-there first. Workspace and application shortcuts remain independent; tiling
-shortcuts are inactive while tiling is off. Super+Alt+Space toggles floating for
-one window while tiling is active. See [tiling](docs/tiling.md) for configuration
-and troubleshooting.
+Disabling the script leaves windows at their last positions and sizes, free to
+move, resize and maximize. Enabling it arranges eligible windows again. All
+normal windows retain minimize, maximize and close controls. Workspace and
+application shortcuts remain independent; Kröhnkite shortcuts are unavailable
+when its script is disabled. See [tiling](docs/tiling.md).
 
 ## Restore
 

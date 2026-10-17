@@ -67,6 +67,16 @@ def merge_config(path, groups):
         config.write(handle, space_around_delimiters=False)
 
 
+def retire_tiling_control(config, data):
+    """Remove the superseded runtime toggle when upgrading a full setup."""
+    (data / 'kde-graphite/runtime/tiling-control.py').unlink(missing_ok=True)
+    path = config / 'kwinrc'
+    settings = read_config(path)
+    if settings.has_section('Script-krohnkite') and settings.remove_option('Script-krohnkite', 'runtimeEnabled'):
+        with path.open('w') as handle:
+            settings.write(handle, space_around_delimiters=False)
+
+
 def settings(path=None):
     result = json.loads((ROOT / 'settings.json').read_text())
     if path:
@@ -122,7 +132,7 @@ def payload(options, data):
         if source.is_file():
             files[scripts / 'krohnkite' / source.relative_to(ROOT / 'vendor/krohnkite')] = source.read_bytes()
     # Qt caches imported JavaScript by URL for the lifetime of the session.
-    # Version the entry point and imported module so updates work without logout.
+    # Version module URLs to avoid cached imports; activate updates at the next login.
     krohnkite = scripts / 'krohnkite'
     script = files[krohnkite / 'contents/code/script.js']
     main_qml = files[krohnkite / 'contents/ui/main.qml']
@@ -346,7 +356,7 @@ def apply(options, config, data, state, with_wheel=False, panel=True):
     before = protected_hashes(config)
     backup = Backup(state)
     backup.save([config / name for name in set(fragments) | {'kglobalshortcutsrc', 'plasmashellrc',
-        'plasma-org.kde.plasma.desktop-appletsrc'}] + [config / 'kdedefaults/package'] + list(files))
+        'plasma-org.kde.plasma.desktop-appletsrc'}] + [config / 'kdedefaults/package', data / 'kde-graphite/runtime/tiling-control.py'] + list(files))
     print(f'Backup: {backup.path}', flush=True)
     (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')
     # Stop KDE's GTK synchronizer before changing any palette values.
@@ -363,6 +373,7 @@ def apply(options, config, data, state, with_wheel=False, panel=True):
         path.write_bytes(content)
     for name, groups in fragments.items():
         merge_config(config / name, groups)
+    retire_tiling_control(config, data)
     (config / 'kdedefaults').mkdir(parents=True, exist_ok=True)
     (config / 'kdedefaults/package').write_text(theme.THEME_ID + '\n')
     shortcut_groups = {'kwin': {name: (seq.replace(';', '\\t') or 'none') + ',none,Graphite: ' + name
@@ -444,17 +455,9 @@ def restore_files(path):
             target.unlink()
 
 
-def tiling_control():
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('graphite_tiling', ROOT / 'scripts/tiling-control.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', nargs='?', default='theme', choices=['install', 'theme', 'build-theme', 'check', 'restore', 'tiling', 'doctor'])
+    parser.add_argument('command', nargs='?', default='theme', choices=['install', 'theme', 'build-theme', 'check', 'restore', 'doctor'])
     parser.add_argument('value', nargs='?')
     parser.add_argument('--settings', type=Path)
     parser.add_argument('--dry-run', action='store_true')
@@ -477,7 +480,7 @@ def main():
             raise RuntimeError('Doctor found:\n  - ' + '\n  - '.join(errors))
         print('Ready for ' + ('the full setup.' if args.value == 'install' else 'appearance installation.'))
         return
-    if args.dry_run and args.command in ['restore', 'tiling', 'check']:
+    if args.dry_run and args.command in ['restore', 'check']:
         print('Would run ' + args.command + (' ' + args.value if args.value else '') + '. No changes made.')
         return
     if args.command == 'install':
@@ -506,11 +509,6 @@ def main():
     elif args.command == 'restore':
         path = Path(args.value) if args.value else Path((state / 'kde-graphite/latest-backup').read_text().strip())
         restore(path)
-    else:
-        if args.value not in ['on', 'off', 'toggle']:
-            parser.error('Use: install.py tiling on|off|toggle')
-        active = tiling_control().change(args.value)
-        print('Automatic tiling ' + ('on' if active else 'off') + '.')
 
 
 if __name__ == '__main__':

@@ -10,12 +10,10 @@ release commit `1d7fd74`, with local changes:
 - Restore titlebar controls when a normal tiled window becomes floating,
   including windows that start floating and script reloads. Restore normal
   titlebars on script unload.
-
 - Respect the configured border preference in maximized tile layouts.
 - Leave default shortcuts unbound; the installer applies the selected mappings.
-- Suspend tiling through a runtime setting, avoiding script reloads when changing modes.
 - Disconnect window/workspace signals on script destruction and ignore pending callbacks after shutdown.
-- Ignore interactive window management callbacks while suspended; poll fresh runtime and plugin settings.
+- Ignore geometry and window-management callbacks after script shutdown.
 
 The installer versions the QML entry point and imported JavaScript filenames
 to avoid reusing cached module URLs. Script updates still require a new KDE

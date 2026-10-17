@@ -39,8 +39,7 @@ class PortabilityTests(unittest.TestCase):
         self.assertNotIn('konsole', required)
 
     def test_dry_runs_do_not_call_mutations_and_default_to_appearance(self):
-        for args, function in [(['--dry-run'], 'apply'), (['restore', '--dry-run'], 'restore'),
-                               (['tiling', 'off', '--dry-run'], 'tiling_control')]:
+        for args, function in [(['--dry-run'], 'apply'), (['restore', '--dry-run'], 'restore')]:
             with patch.object(sys, 'argv', ['install.py', *args]), \
                  patch.object(install, function, side_effect=AssertionError('Dry run mutated state')), \
                  patch('theme.install_theme', side_effect=AssertionError('Dry run applied theme')), \
@@ -65,7 +64,10 @@ class PortabilityTests(unittest.TestCase):
             config, data, state = [root / name for name in ['config', 'data', 'state']]
             (config / 'hypr').mkdir(parents=True)
             (config / 'hypr/hyprland.conf').write_text('keep this\n')
-            (config / 'kwinrc').write_text('[Windows]\nUnrelated=keep\n')
+            (config / 'kwinrc').write_text('[Windows]\nUnrelated=keep\n[Script-krohnkite]\nruntimeEnabled=false\n')
+            obsolete = data / 'kde-graphite/runtime/tiling-control.py'
+            obsolete.parent.mkdir(parents=True)
+            obsolete.write_text('# superseded toggle\n')
             original = (config / 'kwinrc').read_bytes()
             protected = install.protected_hashes(config)
             options = install.settings()
@@ -83,7 +85,8 @@ class PortabilityTests(unittest.TestCase):
             shortcuts = install.read_config(config / 'kglobalshortcutsrc')['kwin']
             self.assertTrue(shortcuts['KdeHyprLaunchTerminal'].startswith('Meta+Return,'))
             self.assertTrue(shortcuts['KdeHyprSendDesktop10'].startswith('Meta+Shift+0,'))
-            self.assertTrue((data / 'kde-graphite/runtime/tiling-control.py').is_file())
+            self.assertFalse((data / 'kde-graphite/runtime/tiling-control.py').exists())
+            self.assertNotIn('runtimeEnabled', install.read_config(config / 'kwinrc')['Script-krohnkite'])
             self.assertTrue((data / 'plasma/plasmoids/org.kde.graphite.workspaces/metadata.json').is_file())
             self.assertFalse((data / 'plasma/plasmoids/org.kde.graphite.tiling/metadata.json').exists())
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
@@ -93,7 +96,7 @@ class PortabilityTests(unittest.TestCase):
                 install.restore(backup)
             self.assertEqual((config / 'kwinrc').read_bytes(), original)
             self.assertEqual(protected, install.protected_hashes(config))
-            self.assertFalse((data / 'kde-graphite/runtime/tiling-control.py').exists())
+            self.assertEqual(obsolete.read_text(), '# superseded toggle\n')
 
     def test_missing_dependencies_leave_destination_untouched(self):
         with tempfile.TemporaryDirectory() as directory:
