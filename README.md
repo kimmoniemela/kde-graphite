@@ -136,9 +136,11 @@ python3 install.py tiling on
 
 Alternatively, toggle Krohnkite in System Settings → Window Management → KWin
 Scripts. Super+Alt+Space floats one window. Colors, launch shortcuts and
-workspaces do not depend on tiling. Floating windows and windows with tiling
-disabled have minimize, maximize/restore and close buttons. Maximized windows
-retain their titlebar controls.
+workspaces do not depend on tiling. All normal windows keep minimize,
+maximize/restore and close buttons, including tiled windows. Maximized windows
+retain their titlebars. A KDE script
+also restores controls on newly opened windows; terminal configuration in
+other DEs is untouched.
 
 ## Restore
 
@@ -153,6 +155,8 @@ python3 install.py restore /path/to/backup # selected backup
 Log out and back into KDE after restoring. The system-installed wheel plugin
 is left in place but unloaded. Backups belong to the machine where they were
 created; do not use them to install another machine.
+
+The complete change history is in [docs/setup-history.md](docs/setup-history.md).
 
 ## Sources and validation
 
