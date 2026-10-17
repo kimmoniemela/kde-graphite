@@ -7,6 +7,18 @@ import tarfile
 ROOT = Path(__file__).resolve().parent
 THEME_ID = 'org.kde.graphite.desktop'
 PACKAGE = ROOT / 'theme' / THEME_ID
+WALLPAPERS = ('GraphiteContours', 'GraphiteContoursAlternate')
+
+
+def wallpaper_script(data=None):
+    relative = [Path('plasma/look-and-feel') / THEME_ID / 'contents/wallpapers' / name
+                / 'contents/images/3840x2160.png' for name in WALLPAPERS]
+    if data is not None:
+        images = json.dumps([(data / path).as_uri() for path in relative])
+    else:
+        images = '[' + ', '.join('"file://" + userDataPath("data", ' + json.dumps(str(path))
+                                  + ').split("/").map(encodeURIComponent).join("/")' for path in relative) + ']'
+    return (ROOT / 'templates/wallpaper.js').read_text().replace('@@WALLPAPER_IMAGES@@', images)
 
 
 def font_values(options):
@@ -32,7 +44,7 @@ var graphitePrimaryOutput = String(bridge.readEntry('PrimaryOutput') || '');
     script = (ROOT / 'templates/panel.js').read_text()
     return (prefix + script.replace('@@PANEL_HEIGHT@@', str(options['panel_height']))
             .replace('@@APPLICATION_TRAY_IDS@@', '[]')
-            .replace('@@PRIMARY_OUTPUT@@', 'graphitePrimaryOutput'))
+            .replace('@@PRIMARY_OUTPUT@@', 'graphitePrimaryOutput')) + wallpaper_script()
 
 
 def package_files(options):
@@ -68,6 +80,12 @@ def payload(options, data):
     files = {data / 'plasma/look-and-feel' / THEME_ID / path: content
              for path, content in package_files(options).items()}
     files.update(window_control_files(data))
+    # Also expose named packages in KDE's wallpaper picker.
+    for name in WALLPAPERS:
+        source = PACKAGE / 'contents/wallpapers' / name
+        for path in source.rglob('*'):
+            if path.is_file():
+                files[data / 'wallpapers' / name / path.relative_to(source)] = path.read_bytes()
     # A named palette remains available separately in System Settings > Colors.
     files[data / 'color-schemes/TerminalGraphite.colors'] = (ROOT / 'assets/color-schemes/TerminalGraphite.colors').read_bytes()
     return files
@@ -118,7 +136,8 @@ def install_theme(options, config, data, state, api):
     protected = api.protected_hashes(config)
     backup = api.Backup(state)
     marker = config / 'kdedefaults/package'
-    backup.save(list(files) + [config / name for name in appearance] + [marker])
+    backup.save(list(files) + [config / name for name in appearance]
+                + [marker, config / 'plasma-org.kde.plasma.desktop-appletsrc'])
     print(f'Backup: {backup.path}', flush=True)
     (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')
     # KDE's GTK sync must be stopped before notifying it about palette changes.
@@ -132,7 +151,8 @@ def install_theme(options, config, data, state, api):
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(THEME_ID + '\n')
     api.kwin('/KWin', 'org.kde.KWin.reconfigure')
-    api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', "theme = 'default';")
+    api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript',
+             "theme = 'default';\n" + wallpaper_script(data))
     if protected != api.protected_hashes(config):
         raise RuntimeError(f'A protected desktop config changed. Backup: {backup.path}')
     (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')

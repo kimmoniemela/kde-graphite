@@ -61,6 +61,12 @@ backs up touched files and disables KDE's GTK synchronization before applying
 colors. Native package import alone does not perform those extra steps. The
 preview images are illustrations.
 
+Both contour wallpapers are embedded in the theme archive. Applying its desktop
+layout selects a variation for each screen. The `theme` and full `install`
+commands also install named wallpaper packages for KDE's wallpaper picker.
+Their source is in `assets/wallpapers/`; regenerate the bundled PNGs with
+`python3 tools/render-wallpaper.py` (development only; requires PySide6 QtSvg).
+
 ## Verification
 
 ```sh

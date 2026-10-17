@@ -4,6 +4,11 @@ A KDE Plasma Global Theme: charcoal surfaces, muted sage, monospace type and
 quiet Breeze decorations. An optional full setup adds top bars, keyboard
 shortcuts, five independent workspaces per monitor and Kröhnkite tiling.
 
+Graphite includes two static charcoal contour wallpapers. Appearance installation
+applies them across connected displays and adds them to KDE's wallpaper picker.
+The original SVGs and optional rendering tool are included in the repository;
+installation uses the bundled 4K PNGs and needs no rendering tools.
+
 ![Graphite preview](theme/org.kde.graphite.desktop/contents/previews/preview.png)
 
 Appearance requires Plasma 6. The full setup requires Plasma 6.7+ on Wayland,
@@ -81,6 +86,9 @@ not unload and reload live KWin scripts.
 The primary screen gets labels 1–5 and the secondary 6–10. Super+1–5 / Super+6–0
 select those destinations; add Shift to move a window. Output names are detected
 on each machine. See [shortcuts](docs/shortcuts.md).
+Occupied workspaces have sage numbers and a small underline. The current
+workspace is filled; empty workspace numbers are dimmed. Each bar tracks its
+own monitor, including minimized windows.
 
 ## Local settings
 

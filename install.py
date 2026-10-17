@@ -374,6 +374,7 @@ def apply(options, config, data, state, with_wheel=False, panel=True):
     merge_config(config / 'kglobalshortcutsrc', shortcut_groups)
     native_shortcuts()
     # Load the new scripts at the next login. Unload/reload cycles have crashed Qt's GC.
+    dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', theme.wallpaper_script(data))
     if panel:
         script = (ROOT / 'templates/panel.js').read_text().replace('@@PANEL_HEIGHT@@', str(options['panel_height']))
         script = script.replace('@@APPLICATION_TRAY_IDS@@', json.dumps(tray_ids()))

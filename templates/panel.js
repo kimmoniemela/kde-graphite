@@ -52,9 +52,6 @@ for (var screen of screens) {
 }
 for (var d of desktops()) {
     if (typeof graphiteOnlyMissing !== 'undefined' && graphiteOnlyMissing) continue;
-    d.wallpaperPlugin = 'org.kde.color';
-    d.currentConfigGroup = ['Wallpaper', 'org.kde.color', 'General'];
-    d.writeConfig('Color', '#111416');
     d.currentConfigGroup = ['General'];
     d.writeConfig('showToolbox', false);
 }

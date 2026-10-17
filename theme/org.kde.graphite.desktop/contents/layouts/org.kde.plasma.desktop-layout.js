@@ -60,10 +60,16 @@ for (var screen of screens) {
 }
 for (var d of desktops()) {
     if (typeof graphiteOnlyMissing !== 'undefined' && graphiteOnlyMissing) continue;
-    d.wallpaperPlugin = 'org.kde.color';
-    d.currentConfigGroup = ['Wallpaper', 'org.kde.color', 'General'];
-    d.writeConfig('Color', '#111416');
     d.currentConfigGroup = ['General'];
     d.writeConfig('showToolbox', false);
 }
 print('Graphite panels applied');
+// Static wallpaper only; no panel, shortcut or window-management changes.
+var graphiteWallpaperImages = ["file://" + userDataPath("data", "plasma/look-and-feel/org.kde.graphite.desktop/contents/wallpapers/GraphiteContours/contents/images/3840x2160.png").split("/").map(encodeURIComponent).join("/"), "file://" + userDataPath("data", "plasma/look-and-feel/org.kde.graphite.desktop/contents/wallpapers/GraphiteContoursAlternate/contents/images/3840x2160.png").split("/").map(encodeURIComponent).join("/")];
+for (var desktop of desktops()) {
+    if (desktop.screen < 0) continue;
+    desktop.wallpaperPlugin = 'org.kde.image';
+    desktop.currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];
+    desktop.writeConfig('Image', graphiteWallpaperImages[desktop.screen % graphiteWallpaperImages.length]);
+    desktop.writeConfig('FillMode', 2);
+}

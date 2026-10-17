@@ -3,8 +3,8 @@
   "KPlugin": {
     "Id": "org.kde.graphite.workspaces",
     "Name": "Graphite workspaces",
-    "Description": "Five monitor-local workspaces with distinct keyboard numbers",
-    "Version": "1.0",
+    "Description": "Five monitor-local workspaces with distinct keyboard numbers and occupied-workspace markers",
+    "Version": "1.1",
     "License": "MIT",
     "Icon": "preferences-desktop-virtual",
     "Category": "Windows and Tasks"

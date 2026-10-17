@@ -1,0 +1,12 @@
+{
+  "KPlugin": {
+    "Id": "GraphiteContours",
+    "Name": "Graphite Contours",
+    "Authors": [
+      {
+        "Name": "Graphite contributors"
+      }
+    ],
+    "License": "MIT"
+  }
+}

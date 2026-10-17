@@ -152,6 +152,13 @@ user's request. Tiling remains controllable through the command-line helper.
 
 ## Files and installation
 
+Added original static 4K contour wallpapers on the Graphite charcoal background,
+with a slight variation between monitors. Both variants are bundled in the
+Global Theme and installed as named KDE wallpapers. The workspace widget now
+marks occupied workspaces in sage, keeps the current workspace filled, and dims
+empty numbers. It reads KDE's task model for each monitor and counts minimized
+windows; it does not change workspace shortcuts or window layout.
+
 Window-management fixes added explicit Kröhnkite shutdown cleanup, guards for
 ordinary moves/resizes while suspended and fresh reads of its enabled flags.
 The workspace script reuses supported timers instead of calling `deleteLater`,
