@@ -1,0 +1,14 @@
+{
+  "KPackageStructure": "Plasma/LookAndFeel",
+  "KPlugin": {
+    "Id": "org.kde.graphite.desktop",
+    "Name": "Graphite",
+    "Description": "Charcoal, muted sage, monospace. A quiet workspace for KDE Plasma.",
+    "Version": "1.0.0",
+    "License": "MIT",
+    "Authors": [{"Name": "Graphite contributors"}],
+    "Website": "https://github.com/kimmoniemela/kde-graphite",
+    "Icon": "preferences-desktop-theme-global"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
+}

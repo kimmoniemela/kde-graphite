@@ -15,6 +15,8 @@ import subprocess
 import sys
 import uuid
 
+import theme
+
 ROOT = Path(__file__).resolve().parent
 SCRIPTS = ('krohnkite', 'kde-hypr-bridge', 'kde-hypr-launchers-v2')
 WHEEL = 'kwin_hypr_scroll_desktop'
@@ -77,7 +79,7 @@ def settings(path=None):
 
 def payload(options, data):
     """Render portable templates for one user's XDG data directory."""
-    files = {}
+    files = theme.payload(options, data)
     runtime = data / 'kde-graphite/runtime'
     for directory in ['assets/color-schemes', 'assets/konsole']:
         for source in (ROOT / directory).iterdir():
@@ -258,6 +260,9 @@ def resolve_outputs(options):
 def apply(options, config, data, state, with_wheel=True, panel=True):
     preflight(with_wheel)
     options = resolve_outputs(options)
+    families = run('fc-list', ':', 'family')
+    if options['font'] not in families:
+        options['font'] = 'Fira Code' if 'Fira Code' in families else 'monospace'
     files = payload(options, data)
     fragments = json.loads((ROOT / 'config.json').read_text())
     fragments['kwinrc']['Plugins'][WHEEL + 'Enabled'] = str(with_wheel).lower()
@@ -265,21 +270,16 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
         'PrimaryOutput': options['primary_output'], 'SecondaryOutput': options['secondary_output']}
     palette = read_config(ROOT / 'assets/color-schemes/TerminalGraphite.colors')
     fragments['kdeglobals'] = {group: dict(palette[group]) for group in palette.sections() if group != 'General'}
-    font = options['font']
-    families = run('fc-list', ':', 'family')
-    if font not in families:
-        font = 'Fira Code' if 'Fira Code' in families else 'monospace'
-    qfont = f"{font},{options['font_size']},-1,5,400,0,0,0,0,0"
-    fragments['kdeglobals'].update({'General': {'ColorScheme': 'TerminalGraphite', **{key: qfont for key in
-        ['font', 'fixed', 'menuFont', 'toolBarFont', 'smallestReadableFont']}},
-        'KDE': {'widgetStyle': 'Breeze', 'AnimationDurationFactor': '0'}, 'Icons': {'Theme': 'breeze-dark'}})
-    fragments['kdeglobals']['WM']['activeFont'] = f"{font},{max(options['font_size'] - 1, 8)},-1,5,500,0,0,0,0,0"
+    fonts = theme.font_values(options)
+    fragments['kdeglobals'].update({'General': {'ColorScheme': 'TerminalGraphite', **fonts['General']},
+        'KDE': {'LookAndFeelPackage': theme.THEME_ID, 'widgetStyle': 'Breeze', 'AnimationDurationFactor': '0'}, 'Icons': {'Theme': 'breeze-dark'}})
+    fragments['kdeglobals']['WM'].update(fonts['WM'])
     fragments['kwinrc']['Desktops'] = {'Number': '5', 'Rows': '1', **{f'Name_{n}': str(n) for n in range(1, 6)}}
     fragments['plasmarc'] = {'Theme': {'name': 'default'}}
     before = protected_hashes(config)
     backup = Backup(state)
     backup.save([config / name for name in set(fragments) | {'kglobalshortcutsrc', 'plasmashellrc',
-        'plasma-org.kde.plasma.desktop-appletsrc'}] + list(files))
+        'plasma-org.kde.plasma.desktop-appletsrc'}] + [config / 'kdedefaults/package'] + list(files))
     print(f'Backup: {backup.path}', flush=True)
     # Stop KDE's GTK synchronizer before changing any palette values.
     dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
@@ -296,6 +296,8 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
         path.write_bytes(content)
     for name, groups in fragments.items():
         merge_config(config / name, groups)
+    (config / 'kdedefaults').mkdir(parents=True, exist_ok=True)
+    (config / 'kdedefaults/package').write_text(theme.THEME_ID + '\n')
     shortcut_groups = {'kwin': {name: (seq.replace(';', '\\t') or 'none') + ',none,Graphite: ' + name
                                for (component, name), seq in shortcut_ids().items()}}
     merge_config(config / 'kglobalshortcutsrc', shortcut_groups)
@@ -380,7 +382,7 @@ def restore_files(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', nargs='?', default='install', choices=['install', 'check', 'restore', 'tiling'])
+    parser.add_argument('command', nargs='?', default='install', choices=['install', 'theme', 'build-theme', 'check', 'restore', 'tiling'])
     parser.add_argument('value', nargs='?')
     parser.add_argument('--settings', type=Path)
     parser.add_argument('--dry-run', action='store_true')
@@ -399,6 +401,19 @@ def main():
             print('Would back up touched files and leave other desktop configs unchanged. No changes made.')
         else:
             apply(options, config, data, state, not args.without_wheel, not args.no_panel)
+    elif args.command == 'theme':
+        options = settings(args.settings)
+        if args.dry_run:
+            print(f'Would install Graphite under {data / "plasma/look-and-feel" / theme.THEME_ID}.')
+            print('Would apply appearance and lock-screen settings; retain panels, workspaces, shortcuts and tiling.')
+        else:
+            theme.install_theme(options, config, data, state, sys.modules[__name__])
+    elif args.command == 'build-theme':
+        destination = Path(args.value) if args.value else ROOT / 'build/Graphite-1.0.0.tar.gz'
+        if args.dry_run:
+            print(f'Would build {destination}.')
+        else:
+            print(theme.build_archive(destination))
     elif args.command == 'check':
         check(not args.without_wheel)
     elif args.command == 'restore':

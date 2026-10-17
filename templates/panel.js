@@ -8,9 +8,15 @@ function configurePanel(p, primary) {
     p.floating = false;
     p.opacity = 'opaque';
     for (var w of p.widgets()) w.remove();
-    var pager = p.addWidget('org.kde.graphite.workspaces');
+    var pagerType = typeof graphitePagerType === 'undefined' ? 'org.kde.graphite.workspaces' : graphitePagerType;
+    var pager = p.addWidget(pagerType);
     pager.currentConfigGroup = ['General'];
-    pager.writeConfig('primaryOutput', @@PRIMARY_OUTPUT@@);
+    if (pagerType === 'org.kde.graphite.workspaces') pager.writeConfig('primaryOutput', @@PRIMARY_OUTPUT@@);
+    else {
+        pager.writeConfig('displayedText', 1);
+        pager.writeConfig('showOnlyCurrentScreen', true);
+        pager.writeConfig('showWindowIcons', false);
+    }
     var tasks = p.addWidget('org.kde.plasma.taskmanager');
     tasks.currentConfigGroup = ['General'];
     tasks.writeConfig('launchers', []);
@@ -30,7 +36,7 @@ function configurePanel(p, primary) {
     tray.writeConfig('hiddenItems', ['org.kde.kdeconnect', 'org.kde.plasma.vault', 'org.kde.plasma.clipboard', 'org.kde.plasma.devicenotifier', 'org.kde.plasma.manage-inputmethod', 'org.kde.plasma.mediacontroller', 'org.kde.plasma.brightness', 'org.kde.plasma.keyboardlayout', 'org.kde.plasma.keyboardindicator', 'org.kde.plasma.printmanager', 'org.kde.kscreen', 'org.kde.plasma.weather', 'org.kde.plasma.bluetooth'].concat(@@APPLICATION_TRAY_IDS@@));
     tray.writeConfig('showAllItems', false);
     tray.writeConfig('iconSpacing', 1);
-    tray.globalShortcut = primary ? 'Meta+X' : '';
+    tray.globalShortcut = primary && (typeof graphiteAssignShortcuts === 'undefined' || graphiteAssignShortcuts) ? 'Meta+X' : '';
     var clock = p.addWidget('org.kde.plasma.digitalclock');
     clock.currentConfigGroup = ['Appearance'];
     clock.writeConfig('showDate', false);

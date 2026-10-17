@@ -1,11 +1,50 @@
-# kde-graphite
+# Graphite
 
-Personal KDE Plasma setup: charcoal colors, monospace text, an opaque top bar,
-five independent workspaces per monitor, Hyprland-style shortcuts, and optional
-Kröhnkite tiling. Includes a matching lock screen.
+A KDE Plasma Global Theme and desktop configuration. Charcoal surfaces, muted
+sage accents, monospace type and an opaque top bar. The complete setup adds
+five independent workspaces per monitor, keyboard shortcuts and optional
+Kröhnkite tiling.
+
+![Graphite preview](theme/org.kde.graphite.desktop/contents/previews/preview.png)
 
 Tested on Fedora 44, Plasma 6.7.5, Wayland. Requires Plasma 6.7 or later in the
 6.x series. Arch package instructions are provided; Arch has not been tested.
+
+## Global Theme
+
+From this repository, inside a KDE session:
+
+```sh
+python3 install.py theme --dry-run
+python3 install.py theme
+```
+
+Graphite appears in System Settings → Colors & Themes → Global Theme. This
+installs and selects its appearance, including the matching lock-screen settings.
+Existing panels, workspaces, shortcuts and tiling stay in place. Requires
+Python 3, Fontconfig, Breeze and the standard Plasma tools. Fira Code
+is the fallback when FiraCode Nerd Font Mono is unavailable.
+
+When applying Graphite from System Settings, leave **Desktop layout** unchecked
+to retain your panels. Select it to create a top bar on each connected display.
+The layout uses Graphite's numbered pager when the full setup is installed;
+otherwise it uses KDE's standard pager.
+
+For a package that can be imported with **Install from File**:
+
+```sh
+python3 install.py build-theme
+```
+
+Output: `build/Graphite-1.0.0.tar.gz`. The package embeds its palette and uses
+Breeze components. The repository's `theme/org.kde.graphite.desktop/` directory
+is also directly installable with `kpackagetool6 --type Plasma/LookAndFeel
+--install /path/to/theme/org.kde.graphite.desktop`. A package-only import supplies
+KDE's supported theme components; the `theme` command also applies the quiet
+Breeze, effects and lock-screen preferences. Preview images are illustrations.
+
+The full setup below includes the Global Theme. Tiling, workspace routing and
+shortcut plugins belong to the installer.
 
 ## Dependencies
 
