@@ -53,9 +53,21 @@ def package_files(options):
     return files
 
 
+def window_control_files(data):
+    root = data / 'kwin/scripts/graphite-window-controls'
+    metadata = {'KPackageStructure': 'KWin/Script',
+                'KPlugin': {'Id': 'graphite-window-controls', 'Name': 'Graphite window controls',
+                            'Description': 'Keep minimize, maximize and close controls on normal windows',
+                            'Version': '1.0', 'License': 'MIT'},
+                'X-Plasma-API': 'javascript', 'X-Plasma-MainScript': 'code/main.js'}
+    return {root / 'metadata.json': (json.dumps(metadata, indent=2) + '\n').encode(),
+            root / 'contents/code/main.js': (ROOT / 'templates/window-controls.js').read_bytes()}
+
+
 def payload(options, data):
     files = {data / 'plasma/look-and-feel' / THEME_ID / path: content
              for path, content in package_files(options).items()}
+    files.update(window_control_files(data))
     # A named palette remains available separately in System Settings > Colors.
     files[data / 'color-schemes/TerminalGraphite.colors'] = (ROOT / 'assets/color-schemes/TerminalGraphite.colors').read_bytes()
     return files
@@ -91,8 +103,11 @@ def install_theme(options, config, data, state, api):
     appearance['kwinrc'] = {'org.kde.kdecoration2': {**kwin['org.kde.kdecoration2'],
                           'library': 'org.kde.breeze', 'theme': 'Breeze'},
                           'Windows': {'BorderlessMaximizedWindows': 'false'},
+                          'Script-krohnkite': {'noTileBorder': 'false', 'soleWindowNoBorders': 'false'},
                           'Plugins': {k: v for k, v in kwin['Plugins'].items()
-                                      if k.endswith('Enabled') and v == 'false'}}
+                                      if k.endswith('Enabled') and v == 'false'},
+                          }
+    appearance['kwinrc']['Plugins']['graphite-window-controlsEnabled'] = 'true'
     palette = api.read_config(ROOT / 'assets/color-schemes/TerminalGraphite.colors')
     appearance['kdeglobals'] = {group: dict(palette[group]) for group in palette.sections() if group != 'General'}
     fonts = font_values(options)
@@ -117,6 +132,7 @@ def install_theme(options, config, data, state, api):
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(THEME_ID + '\n')
     api.kwin('/KWin', 'org.kde.KWin.reconfigure')
+    api.kwin('/Scripting', 'org.kde.kwin.Scripting.start')
     api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', "theme = 'default';")
     if protected != api.protected_hashes(config):
         raise RuntimeError(f'A protected desktop config changed. Backup: {backup.path}')

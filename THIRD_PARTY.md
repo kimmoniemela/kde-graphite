@@ -8,10 +8,12 @@ release commit `1d7fd74`, with local changes:
 - Resolve the current desktop separately for each output on KWin 6.7.
 - Preserve floating or tiled state after temporary skip-pager transfers.
 - Restore titlebar controls when a normal tiled window becomes floating,
-  including after a script reload. Restore normal titlebars on script unload.
+  including windows that start floating and script reloads. Restore normal
+  titlebars on script unload.
 
 The installer versions the QML entry point and imported JavaScript filenames
 to bypass Qt’s session cache when updating the tiler.
+- Respect the configured border preference in maximized tile layouts.
 - Leave default shortcuts unbound; the installer applies the selected mappings.
 
 Upstream: <https://codeberg.org/anametologin/Krohnkite>

@@ -1795,7 +1795,7 @@ class KWinWindow {
                 this.noBorderOriginal = false;
             if (noBorder)
                 this.window.noBorder = true;
-            else if (this.noBorderManaged)
+            else if (this.noBorderManaged || this.window.normalWindow)
                 // A script reload may have observed an already borderless tile.
                 // Normal floating windows must regain their titlebar controls.
                 this.window.noBorder = this.window.normalWindow ? false : this.noBorderOriginal;
@@ -3127,7 +3127,7 @@ class WindowClass {
                 this.shouldCommitFloat = false;
                 break;
             case WindowState.Maximized:
-                this.window.commit(this.geometry, true, 1);
+                this.window.commit(this.geometry, CONFIG.noTileBorder, 1);
                 break;
             case WindowState.Tiled:
                 this.window.commit(this.geometry, CONFIG.noTileBorder || Boolean(noBorders), CONFIG.tiledWindowsLayer);

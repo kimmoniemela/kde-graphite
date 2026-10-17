@@ -32,7 +32,8 @@
       "krohnkiteEnabled": "true",
       "kde-hypr-bridgeEnabled": "true",
       "kde-hypr-launchers-v2Enabled": "true",
-      "kwin_hypr_scroll_desktopEnabled": "true"
+      "kwin_hypr_scroll_desktopEnabled": "true",
+      "graphite-window-controlsEnabled": "true"
     },
     "Script-krohnkite": {
       "adjustLayout": "true",
@@ -43,7 +44,7 @@
       "keepTilingOnDrag": "true",
       "layoutPerActivity": "true",
       "layoutPerDesktop": "true",
-      "noTileBorder": "true",
+      "noTileBorder": "false",
       "notificationDuration": "0",
       "screenDefaultLayout": ":tile",
       "screenGapBetween": "6",

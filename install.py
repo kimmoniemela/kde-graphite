@@ -18,7 +18,7 @@ import uuid
 import theme
 
 ROOT = Path(__file__).resolve().parent
-SCRIPTS = ('krohnkite', 'kde-hypr-bridge', 'kde-hypr-launchers-v2')
+SCRIPTS = ('krohnkite', 'kde-hypr-bridge', 'kde-hypr-launchers-v2', 'graphite-window-controls')
 WHEEL = 'kwin_hypr_scroll_desktop'
 KEYS = {
     'Terminal': 'Meta+Return', 'Files': 'Meta+E', 'Editor': 'Meta+T',
