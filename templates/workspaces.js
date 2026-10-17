@@ -51,7 +51,8 @@ function nextEmpty() {
 for (let n = 1; n <= 10; n++) {
     const number = n, key = n % 10;
     action('Desktop' + n, 'Workspace ' + n, 'Meta+' + key, () => switchNumber(number));
-    action('SendDesktop' + n, 'Send window to workspace ' + n, 'Meta+Shift+' + key, () => sendNumber(number));
+    // Workspaces 1–5 use KWin's native, monitor-local move actions.
+    if (n > 5) action('SendDesktop' + n, 'Send window to workspace ' + n, 'Meta+Shift+' + key, () => sendNumber(number));
 }
 for (let n = 1; n <= 5; n++) {
     const number = n;

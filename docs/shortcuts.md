@@ -31,7 +31,8 @@ hardware and accessibility shortcuts remain available.
 | Alt+Tab / Super+Tab | Window switcher |
 | Super+1–5 | Primary monitor workspaces 1–5 |
 | Super+6–0 | Secondary monitor workspaces 1–5 |
-| Super+Shift+number | Send window to corresponding workspace / monitor |
+| Super+Shift+1–5 | Send window to workspace 1–5 on its current monitor |
+| Super+Shift+6–0 | Send window to secondary monitor workspace 1–5 |
 | Super+Ctrl+1–5 | Workspace on focused monitor |
 | Super+Ctrl+Left / Right | Previous / next workspace |
 | Super+Ctrl+Shift+Left / Right | Send window to previous / next workspace |

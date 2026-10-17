@@ -258,7 +258,7 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
     bindings = [(c, n, seq) for (c, n), seq in shortcut_ids().items()]
     bindings += [('kwin', 'KdeHyprLaunch' + name, seq) for name, seq in KEYS.items()]
     bindings += [('kwin', 'KdeHyprDesktop' + str(n), 'Meta+' + str(n % 10)) for n in range(1, 11)]
-    bindings += [('kwin', 'KdeHyprSendDesktop' + str(n), 'Meta+Shift+' + str(n % 10)) for n in range(1, 11)]
+    bindings += [('kwin', 'KdeHyprSendDesktop' + str(n), 'Meta+Shift+' + str(n % 10)) for n in range(6, 11)]
     bindings += [('plasmashell', 'graphite-notifications', 'Meta+A'), ('plasmashell', 'graphite-tray', 'Meta+X')]
     clear_conflicts(bindings)
     for path, content in files.items():
@@ -286,9 +286,11 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
         time.sleep(1)
         applets = config / 'plasma-org.kde.plasma.desktop-appletsrc'
         current = read_config(applets)
+        notification_shortcut = 'Meta+A'
         for section in current.sections():
             if current[section].get('plugin') == 'org.kde.plasma.notifications':
-                merge_config(applets, {section + '][Shortcuts': {'global': 'Meta+A'}})
+                merge_config(applets, {section + '][Shortcuts': {'global': notification_shortcut}})
+                notification_shortcut = ''
         run('systemctl', '--user', 'restart', 'plasma-plasmashell.service')
     if before != protected_hashes(config):
         raise RuntimeError(f'A protected desktop config changed during installation. Backup: {backup.path}')
@@ -355,7 +357,7 @@ def main():
         options = settings(args.settings)
         if args.dry_run:
             print(f'Would install {len(payload(options, data))} asset/script files under {data}.')
-            print(f'Would merge selected KDE settings under {config}; replace first panel; use five desktops per output.')
+            print(f'Would merge selected KDE settings under {config}; configure a top bar per connected monitor; use five desktops per output.')
             print('Would back up touched files and leave other desktop configs unchanged. No changes made.')
         else:
             apply(options, config, data, state, not args.without_wheel, not args.no_panel)

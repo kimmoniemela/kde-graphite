@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import shutil
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('installer', ROOT / 'install.py')
@@ -63,6 +65,43 @@ class InstallTests(unittest.TestCase):
         script = (ROOT / 'templates/workspaces.js').read_text()
         self.assertIn("readConfig('PrimaryOutput'", script)
         self.assertIn("readConfig('SecondaryOutput'", script)
+
+    def test_move_shortcuts_use_native_monitor_local_actions(self):
+        bindings = installer.shortcut_ids()
+        for n in range(1, 6):
+            self.assertEqual(bindings['kwin', f'Window to Desktop {n}'], f'Meta+Shift+{n}')
+
+    @unittest.skipUnless(shutil.which('node'), 'Node is needed for the Plasma scripting mock')
+    def test_panels_cover_each_screen_without_duplicates_or_shortcut_conflicts(self):
+        script = (ROOT / 'templates/panel.js').read_text().replace('@@PANEL_HEIGHT@@', '28')
+        script = script.replace('@@APPLICATION_TRAY_IDS@@', '[]')
+        mock = """
+const bars = [];
+function Panel() {
+    this.items = [];
+    this.widgets = () => this.items;
+    this.addWidget = type => {
+        const w = {type, writeConfig() {}, remove: () => this.items.splice(this.items.indexOf(w), 1)};
+        this.items.push(w);
+        return w;
+    };
+    bars.push(this);
+}
+function panels() { return bars; }
+function desktops() { return [0, 1].map(screen => ({screen, writeConfig() {}})); }
+function print() {}
+function verify() {
+    if (bars.length !== 2 || new Set(bars.map(p => p.screen)).size !== 2)
+        throw Error('Expected one panel per screen');
+    if (bars.filter(p => p.items.some(w => w.globalShortcut === 'Meta+X')).length !== 1)
+        throw Error('Expected exactly one tray keyboard shortcut');
+}
+"""
+        # A reapply must reuse both bars; a live addition must leave the original intact.
+        code = mock + script + '\nverify();\n' + script + '\nverify();\n'
+        code += 'bars.pop(); const original = bars[0].items[0]; var graphiteOnlyMissing = true;\n'
+        code += script + '\nverify(); if (bars[0].items[0] !== original) throw Error("Original bar changed");'
+        subprocess.run(['node', '-e', code], check=True, capture_output=True, text=True)
 
 
 if __name__ == '__main__':

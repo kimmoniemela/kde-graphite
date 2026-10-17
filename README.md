@@ -60,9 +60,9 @@ Log out and back into KDE. Then check:
 python3 install.py check
 ```
 
-The installer merges selected KDE settings and replaces the first panel.
-Other panels remain. It does not copy display modes, desktop UUIDs or widget
-IDs from another machine. Hyprland, Sway, GNOME, GTK and shell configuration
+The installer merges selected KDE settings and configures one top bar per
+connected monitor. Existing top bars are reused; other panels remain.
+It does not copy display modes, desktop UUIDs or widget IDs from another machine. Hyprland, Sway, GNOME, GTK and shell configuration
 are not installed or modified. KDE's GTK synchronization module is disabled
 before applying the palette.
 
