@@ -43,7 +43,7 @@ class InstallTests(unittest.TestCase):
         destination = Path('/tmp/a different home/data')
         files = installer.payload(options, destination)
         launchers = json.loads(files[destination / 'kde-graphite/runtime/launchers.json'])
-        self.assertEqual(launchers['Terminal'], ['kitty'])
+        self.assertEqual(launchers['Terminal'], ['konsole'])
         self.assertIn(str(destination), launchers['Wallpaper'][1])
         qml = files[destination / 'kwin/scripts/kde-hypr-launchers-v2/contents/ui/main.qml'].decode()
         self.assertNotIn('@@', qml)
@@ -67,7 +67,7 @@ class InstallTests(unittest.TestCase):
             path.write_text(json.dumps({'applications': {'Files': ['dolphin']}, 'primary_output': 'DP-1'}))
             options = installer.settings(path)
             self.assertEqual(options['applications']['Files'], ['dolphin'])
-            self.assertEqual(options['applications']['Terminal'], ['kitty'])
+            self.assertEqual(options['applications']['Terminal'], ['konsole'])
             self.assertEqual(options['primary_output'], 'DP-1')
 
     def test_output_mapping_uses_kde_priority_and_preserves_overrides(self):

@@ -1,192 +1,122 @@
 # Graphite
 
-A KDE Plasma Global Theme and desktop configuration. Charcoal surfaces, muted
-sage accents, monospace type and an opaque top bar. The complete setup adds
-five independent workspaces per monitor, keyboard shortcuts and optional
-Kröhnkite tiling.
+A KDE Plasma Global Theme: charcoal surfaces, muted sage, monospace type and
+quiet Breeze decorations. An optional full setup adds top bars, keyboard
+shortcuts, five independent workspaces per monitor and Kröhnkite tiling.
 
 ![Graphite preview](theme/org.kde.graphite.desktop/contents/previews/preview.png)
 
-Tested on Fedora 44, Plasma 6.7.5, Wayland. Requires Plasma 6.7 or later in the
-6.x series. Arch package instructions are provided; Arch has not been tested.
+Appearance requires Plasma 6. The full setup requires Plasma 6.7+ on Wayland,
+with one or two monitors. Tested on Fedora 44 / Plasma 6.7.5. Other Plasma 6
+versions and a clean Arch installation still need testing.
 
-## Global Theme
+## Get the source
 
-From this repository, inside a KDE session:
-
-```sh
-python3 install.py theme --dry-run
-python3 install.py theme
-```
-
-Graphite appears in System Settings → Colors & Themes → Global Theme. This
-installs and selects its appearance, including the matching lock-screen settings.
-Existing panels, workspaces, shortcuts and tiling stay in place. Requires
-Python 3, Fontconfig, Breeze and the standard Plasma tools. Fira Code
-is the fallback when FiraCode Nerd Font Mono is unavailable.
-
-When applying Graphite from System Settings, leave **Desktop layout** unchecked
-to retain your panels. Select it to create a top bar on each connected display.
-The layout uses Graphite's numbered pager when the full setup is installed;
-otherwise it uses KDE's standard pager.
-
-For a package that can be imported with **Install from File**:
-
-```sh
-python3 install.py build-theme
-```
-
-Output: `build/Graphite-1.0.0.tar.gz`. The package embeds its palette and uses
-Breeze components. The repository's `theme/org.kde.graphite.desktop/` directory
-is also directly installable with `kpackagetool6 --type Plasma/LookAndFeel
---install /path/to/theme/org.kde.graphite.desktop`. A package-only import supplies
-KDE's supported theme components; the `theme` command also applies the quiet
-Breeze, effects and lock-screen preferences. Preview images are illustrations.
-
-The full setup below includes the Global Theme. Tiling, workspace routing and
-shortcut plugins belong to the installer.
-
-## Dependencies
-
-Start with a working Plasma Wayland session. On Arch:
-
-```sh
-sudo pacman -S --needed base-devel cmake extra-cmake-modules kwin pyside6 \
-  kscreen plasma5support kitty nautilus firefox gnome-text-editor gnome-calculator \
-  btop wl-clipboard ttf-fira-code
-```
-
-On Fedora:
-
-```sh
-sudo dnf install gcc-c++ cmake extra-cmake-modules kwin-devel \
-  qt6-qtdeclarative-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel \
-  python3-pyside6 kscreen plasma5support kitty nautilus firefox gnome-text-editor \
-  gnome-calculator btop wl-clipboard fira-code-fonts
-```
-
-KRunner, Spectacle, System Settings and the standard Plasma widgets must be
-installed. The configured font is FiraCode Nerd Font Mono; the installer falls
-back to Fira Code or the system monospace font.
-
-## Install
-
-Clone with an account that has access to this private repository:
+Use an account with access to the private repository. GitHub SSH authentication
+must already be configured, or download the repository ZIP from GitHub.
 
 ```sh
 git clone git@github.com:kimmoniemela/kde-graphite.git
 cd kde-graphite
 ```
 
-Build the wheel shortcut effect against the destination machine's KWin:
+## Install the appearance
+
+Start with a working KDE desktop with Breeze installed. Requires Python 3,
+Fontconfig, GDBus, KDE configuration tools and KPackage tools. No compiler,
+PySide6, wheel plugin or additional applications are required.
+
+Run as the desktop user, inside KDE, without sudo:
 
 ```sh
-cmake -S wheel -B build/wheel -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
-cmake --build build/wheel --parallel
-sudo cmake --install build/wheel
+python3 install.py doctor theme
+python3 install.py theme --dry-run
+python3 install.py theme
 ```
 
-From the target user's KDE session, without sudo:
+Running `python3 install.py` also installs appearance only. Graphite is selected
+and appears in System Settings → Colors & Themes → Global Theme. Existing
+panels, shortcuts, workspaces and tiling remain. Log out and back in to load
+all fonts and the window-controls helper. The font falls back from FiraCode
+Nerd Font Mono to Fira Code, then the system monospace font.
+
+## Install the full desktop setup
+
+Install the additional runtime dependencies. On Arch:
 
 ```sh
-python3 install.py --dry-run
-python3 install.py
+sudo pacman -S --needed pyside6 kscreen plasma5support wl-clipboard \
+  konsole dolphin kwrite kcalc firefox plasma-systemmonitor \
+  spectacle kdeplasma-addons ttf-fira-code
 ```
 
-Log out and back into KDE. Then check:
+On Fedora KDE:
+
+```sh
+sudo dnf install python3-pyside6 kscreen plasma5support wl-clipboard \
+  konsole dolphin kwrite kcalc firefox plasma-systemmonitor \
+  spectacle kdeplasma-addons fira-code-fonts
+```
+
+KRunner and System Settings must be available. Then, from the target user's
+Plasma Wayland session:
+
+```sh
+python3 install.py doctor install
+python3 install.py install --dry-run
+python3 install.py install
+```
+
+Log out and back into KDE, then run:
 
 ```sh
 python3 install.py check
 ```
 
-The installer merges selected KDE settings and configures one top bar per
-connected monitor, labelled 1–5 on the primary and 6–10 on the secondary.
-Existing top bars are reused; other panels remain.
-It does not copy display modes, desktop UUIDs or widget IDs from another machine.
-Hyprland, Sway, GNOME, GTK and shell configuration
-are not installed or modified. KDE's GTK synchronization module is disabled
-before applying the palette.
+The full install replaces the contents of existing top bars or creates a top
+bar per connected monitor. Other panels remain. Use `--no-panel` to retain the
+panel layout. Script changes activate at the next login; the installer does
+not unload and reload live KWin scripts.
 
-Rebuild the wheel effect after a KWin upgrade. To omit it, skip the build and
-pass `--without-wheel` to install and check. Use `--no-panel` to retain the panel.
+The primary screen gets labels 1–5 and the secondary 6–10. Super+1–5 / Super+6–0
+select those destinations; add Shift to move a window. Output names are detected
+on each machine. See [shortcuts](docs/shortcuts.md).
 
 ## Local settings
 
-Copy `settings.json` to `settings.local.json`, edit it, and install with:
+Override only what differs on the destination machine:
 
 ```sh
-python3 install.py --settings settings.local.json
+cp settings.json settings.local.json
+# Edit settings.local.json, then use it for both commands:
+python3 install.py doctor install --settings settings.local.json
+python3 install.py install --settings settings.local.json
 ```
 
-Application commands are argument arrays. `primary_output` and
-`secondary_output` are optional output names. Empty values follow KDE's display
-priority at installation. On a single monitor, both number-key groups select
-that monitor.
+Applications are argument arrays. Defaults use KDE applications and Firefox.
+To use Kitty, set `"Terminal": ["kitty"]`. Empty output names follow KDE's
+priority at installation. Clear old monitor names before moving to another
+machine. The installed launchers keep using the destination machine's commands.
 
-The bars show 1–5 on the primary monitor and 6–10 on the secondary.
-Super+1–5 and Super+6–0 select those destinations; add Shift to send a window.
-Super+Ctrl+1–5 selects a workspace on the focused monitor. See [shortcuts](docs/shortcuts.md).
-
-## Tiling
+## Tiling and restore
 
 ```sh
 python3 install.py tiling off
 python3 install.py tiling on
+python3 install.py restore --dry-run
+python3 install.py restore
 ```
 
-Alternatively, toggle Krohnkite in System Settings → Window Management → KWin
-Scripts. Super+Alt+Space floats one window. Colors, launch shortcuts and
-workspaces do not depend on tiling. All normal windows keep minimize,
-maximize/restore and close buttons, including tiled windows. Maximized windows
-retain their titlebars. A KDE script
-also restores controls on newly opened windows; terminal configuration in
-other DEs is untouched.
+Tiling off suspends automatic arrangement without unloading Kröhnkite.
+Super+Alt+Space floats one window. All normal windows keep their mouse controls.
 
-## Restore
+Touched files are backed up under `~/.local/state/kde-graphite/backups/`.
+Restore uses the latest backup; pass a backup path to select another. Log out
+and back in immediately after restoring. Backups are local to their machine.
+XDG directory overrides are supported. Hyprland, Sway, i3, GNOME, GTK and shell
+configuration are not copied or edited; KDE's GTK synchronization is disabled
+before applying colors.
 
-Every installation backs up the files it touches under
-`~/.local/state/kde-graphite/backups/` (or `$XDG_STATE_HOME`).
-
-```sh
-python3 install.py restore                 # latest backup
-python3 install.py restore /path/to/backup # selected backup
-```
-
-Log out and back into KDE after restoring. The system-installed wheel plugin
-is left in place but unloaded. Backups belong to the machine where they were
-created; do not use them to install another machine.
-
-The complete change history is in [docs/setup-history.md](docs/setup-history.md).
-
-## Sources and validation
-
-Kröhnkite is pinned and included as source. See [THIRD_PARTY.md](THIRD_PARTY.md)
-for its version, local patches and licenses. No theme-store downloads are
-required by the installer.
-
-```sh
-python3 -m unittest discover -s tests
-```
-
-The existing desktop was tested for repeated terminal launches, launcher
-reloads, tiling, floating, scratchpad and independent workspace switching. The
-portable installer has been tested for rendering, config merging and backup
-restoration; a clean-machine installation still needs testing.
-
-## Crash recovery, 17 October 2026
-
-The 14:37:59 crash was a KWin SIGSEGV in Qt QML's JavaScript garbage collector
-(`collectFromJSStack`), reached from `DeclarativeScript::createComponent` while
-starting scripts. The tiling button's unload/reload cycle is the likely trigger;
-the available stack does not identify the initiating script conclusively.
-
-The command-line tiling helper changes a runtime setting. Kröhnkite stays loaded, keeps
-tracking windows, and suspends geometry changes while off. Re-enabling restores
-window states and arranges the layout. Neither action reloads scripts or
-reconfigures KWin. A 500 ms reader picks up mode changes.
-The top-bar tiling button was subsequently removed.
-
-The workspace widget uses TaskManager's public desktop information and the
-existing workspace shortcuts, avoiding the native pager's private import.
-Recovery was verified with free window movement while off, layout restoration
-while on, three further toggle cycles, and the project test suite.
+See [optional wheel shortcuts and theme packaging](docs/install-options.md),
+[portability audit](docs/portability-audit.md), [setup history](docs/setup-history.md)
+and [third-party sources](THIRD_PARTY.md).

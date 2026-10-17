@@ -8,6 +8,8 @@
       "PerOutputVirtualDesktops": "true"
     },
     "org.kde.kdecoration2": {
+      "library": "org.kde.breeze",
+      "theme": "Breeze",
       "BorderSize": "Tiny",
       "BorderSizeAuto": "false",
       "ButtonsOnLeft": "",
@@ -40,7 +42,7 @@
       "adjustLayoutLive": "true",
       "floatSkipPagerWindows": "true",
       "floatUtility": "true",
-      "floatingClass": "gnome-calculator,org.gnome.Calculator",
+      "floatingClass": "gnome-calculator,org.gnome.Calculator,kcalc,org.kde.kcalc",
       "keepTilingOnDrag": "true",
       "layoutPerActivity": "true",
       "layoutPerDesktop": "true",

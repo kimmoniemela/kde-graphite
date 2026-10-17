@@ -152,6 +152,18 @@ user's request. Tiling remains controllable through the command-line helper.
 
 ## Files and installation
 
+The subsequent [portability audit](portability-audit.md) made appearance the
+default command and the native wheel effect optional. Portable application
+defaults now use KDE applications; the existing machine's launchers were kept.
+Installation and restore defer script changes until the next login.
+
+This follows the 14:37:59 KWin crash on 17 October 2026: Qt QML's JavaScript
+garbage collector failed in `collectFromJSStack` through
+`DeclarativeScript::createComponent`. Script reloads were the suspected trigger.
+Runtime tiling control now keeps the engine loaded, suspends arrangement while
+off and restores layouts when enabled. The workspace widget also switched from
+the native pager's private import to public TaskManager desktop information.
+
 | Location | Purpose |
 | --- | --- |
 | `~/kde-graphite/` | Project source and documentation |
@@ -170,7 +182,7 @@ The relevant commands, run from the project directory, are:
 python3 install.py theme --dry-run # preview appearance-only installation
 python3 install.py theme           # install Graphite without replacing panels
 python3 install.py --dry-run       # preview the complete setup
-python3 install.py                 # install the complete setup
+python3 install.py install         # install the complete setup
 python3 install.py build-theme     # build build/Graphite-1.0.0.tar.gz
 python3 install.py tiling off
 python3 install.py tiling on
@@ -178,8 +190,8 @@ python3 install.py check
 python3 install.py restore         # restore the latest installation backup
 ```
 
-Build and install `wheel/` first for the complete setup, or use
-`--without-wheel`. Restore backups only on the machine where they were made.
+The complete setup now works without `wheel/`. Build it only for Super+wheel
+shortcuts, then pass `--with-wheel`. Restore backups only on their source machine.
 Do not copy the whole `~/.config` directory to install another machine.
 
 ## Validation

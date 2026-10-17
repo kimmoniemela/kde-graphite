@@ -5,11 +5,11 @@
   "primary_output": "",
   "secondary_output": "",
   "applications": {
-    "Terminal": ["kitty"],
-    "Files": ["nautilus"],
-    "Editor": ["gnome-text-editor", "--new-window"],
-    "Calculator": ["gnome-calculator"],
+    "Terminal": ["konsole"],
+    "Files": ["dolphin"],
+    "Editor": ["kwrite"],
+    "Calculator": ["kcalc"],
     "Browser": ["firefox"],
-    "ProcessMonitor": ["kitty", "-e", "btop"]
+    "ProcessMonitor": ["plasma-systemmonitor"]
   }
 }

@@ -46,7 +46,7 @@ class ThemeTests(unittest.TestCase):
             protected = install.protected_hashes(config)
             api = SimpleNamespace(**{key: getattr(install, key) for key in ['read_config', 'merge_config', 'protected_hashes', 'Backup']},
                                   run=Mock(return_value='Fira Code'), dbus=Mock(), kwin=Mock())
-            with patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'KDE'}), contextlib.redirect_stdout(io.StringIO()):
+            with patch('doctor.require'), patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'KDE'}), contextlib.redirect_stdout(io.StringIO()):
                 theme.install_theme(install.settings(), config, data, state, api)
             for name in ['kglobalshortcutsrc', 'plasma-org.kde.plasma.desktop-appletsrc']:
                 self.assertEqual((config / name).read_text(), original[name])

@@ -1,17 +1,18 @@
 # Shortcuts
 
 Super means the Windows key. These are the setup's bindings; KDE's nonconflicting
-hardware and accessibility shortcuts remain available.
+hardware and accessibility shortcuts remain available. Application names below
+are the portable defaults; `settings.local.json` can override them.
 
 | Keys | Action |
 | --- | --- |
-| Super+Enter | Kitty |
+| Super+Enter | Terminal (Konsole) |
 | Super+Space | KRunner |
-| Super+E | Nautilus |
-| Super+T | New Text Editor window |
+| Super+E | Files (Dolphin) |
+| Super+T | Text editor (KWrite) |
 | Super+W | Firefox |
-| Super+C / Calculator key | Calculator |
-| Ctrl+Shift+Escape | btop in Kitty |
+| Super+C / Calculator key | Calculator (KCalc) |
+| Ctrl+Shift+Escape | Plasma System Monitor |
 | Super+Z | System Settings |
 | Super+X | System tray |
 | Super+A | Notifications |

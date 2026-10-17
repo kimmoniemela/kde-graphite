@@ -88,9 +88,8 @@ def build_archive(destination):
 
 
 def install_theme(options, config, data, state, api):
-    import os
-    if 'KDE' not in os.environ.get('XDG_CURRENT_DESKTOP', '').split(':'):
-        raise RuntimeError('Run theme installation from a KDE Plasma session.')
+    import doctor
+    doctor.require(api, options)
     options = dict(options)
     families = api.run('fc-list', ':', 'family')
     if options['font'] not in families:
@@ -121,6 +120,7 @@ def install_theme(options, config, data, state, api):
     marker = config / 'kdedefaults/package'
     backup.save(list(files) + [config / name for name in appearance] + [marker])
     print(f'Backup: {backup.path}', flush=True)
+    (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')
     # KDE's GTK sync must be stopped before notifying it about palette changes.
     api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
     api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.unloadModule', 'gtkconfig')
@@ -132,7 +132,6 @@ def install_theme(options, config, data, state, api):
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(THEME_ID + '\n')
     api.kwin('/KWin', 'org.kde.KWin.reconfigure')
-    api.kwin('/Scripting', 'org.kde.kwin.Scripting.start')
     api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', "theme = 'default';")
     if protected != api.protected_hashes(config):
         raise RuntimeError(f'A protected desktop config changed. Backup: {backup.path}')

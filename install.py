@@ -16,6 +16,7 @@ import sys
 import uuid
 
 import theme
+import doctor
 
 ROOT = Path(__file__).resolve().parent
 SCRIPTS = ('krohnkite', 'kde-hypr-bridge', 'kde-hypr-launchers-v2', 'graphite-window-controls')
@@ -31,7 +32,10 @@ KEYS = {
 
 
 def run(*args):
-    result = subprocess.run(args, text=True, capture_output=True)
+    try:
+        result = subprocess.run(args, text=True, capture_output=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f'Command timed out: {args[0]}') from None
     if result.returncode:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or f'{args[0]} failed')
     return result.stdout.strip()
@@ -67,13 +71,26 @@ def settings(path=None):
     result = json.loads((ROOT / 'settings.json').read_text())
     if path:
         local = json.loads(Path(path).read_text())
+        if not isinstance(local, dict):
+            raise ValueError('settings must contain a JSON object')
+        unknown = set(local) - set(result)
+        if unknown:
+            raise ValueError('Unknown settings: ' + ', '.join(sorted(unknown)))
+        if not isinstance(local.get('applications', {}), dict):
+            raise ValueError('applications must be an object of command arrays')
         result['applications'].update(local.pop('applications', {}))
         result.update(local)
     for name, argv in result['applications'].items():
         if not isinstance(argv, list) or not argv or not all(isinstance(s, str) and s for s in argv):
             raise ValueError(f'applications.{name} must be a nonempty argument array')
-    if not 20 <= result['panel_height'] <= 64:
+    if not isinstance(result['panel_height'], int) or not 20 <= result['panel_height'] <= 64:
         raise ValueError('panel_height must be between 20 and 64')
+    if not all(isinstance(result[role], str) for role in ['primary_output', 'secondary_output']):
+        raise ValueError('output names must be strings; use an empty string for automatic detection')
+    if not isinstance(result['font'], str) or not result['font'] or any(c in result['font'] for c in ',\n\r'):
+        raise ValueError('font must be a family name without commas or line breaks')
+    if not isinstance(result['font_size'], (int, float)) or not 6 <= result['font_size'] <= 32:
+        raise ValueError('font_size must be between 6 and 32')
     return result
 
 
@@ -268,19 +285,21 @@ def tray_ids():
     return result
 
 
-def preflight(with_wheel=True):
-    if 'KDE' not in os.environ.get('XDG_CURRENT_DESKTOP', '').split(':') or not os.environ.get('WAYLAND_DISPLAY'):
-        raise RuntimeError('Run this from a KDE Plasma Wayland session.')
-    for executable in ['gdbus', 'kwriteconfig6', 'systemctl', 'fc-list', 'kscreen-doctor']:
-        if not shutil.which(executable):
-            raise RuntimeError(f'Missing executable: {executable}')
-    from PySide6.QtGui import QKeySequence  # noqa: F401
-    info = kwin('/KWin', 'org.kde.KWin.supportInformation')
-    version = re.search(r'KWin version: (\d+)\.(\d+)', info)
-    if not version or int(version[1]) != 6 or int(version[2]) < 7:
-        raise RuntimeError('Requires KWin 6.7 or later in the Plasma 6 series.')
-    if with_wheel and kwin('/Effects', 'org.kde.kwin.Effects.isEffectSupported', WHEEL) != '(true,)':
-        raise RuntimeError('Build and install wheel/ first, or pass --without-wheel.')
+def preflight(options, with_wheel=False):
+    doctor.require(sys.modules[__name__], options, full=True, with_wheel=with_wheel)
+
+
+def restart_shell():
+    """Use the Plasma systemd unit where available; support non-systemd sessions."""
+    if shutil.which('systemctl'):
+        try:
+            if run('systemctl', '--user', 'show', 'plasma-plasmashell.service', '--property=LoadState', '--value') == 'loaded':
+                run('systemctl', '--user', 'restart', 'plasma-plasmashell.service')
+                return
+        except RuntimeError:
+            pass
+    # Plasma rereads the restored layout on the next login on other session managers.
+    print('Log out and back in to reload the panel layout.')
 
 
 def resolve_outputs(options):
@@ -292,11 +311,17 @@ def resolve_outputs(options):
         options['primary_output'] = outputs[0]['name']
     if not options['secondary_output']:
         options['secondary_output'] = next((o['name'] for o in outputs if o['name'] != options['primary_output']), options['primary_output'])
+    connected = {o['name'] for o in outputs}
+    for role in ['primary_output', 'secondary_output']:
+        if options[role] not in connected:
+            raise ValueError(f'{role} is not a connected output: {options[role]}. Clear the setting to detect it automatically.')
+    if len(outputs) > 2:
+        raise ValueError('The full setup supports one or two connected monitors. Use the theme profile for other layouts.')
     return options
 
 
-def apply(options, config, data, state, with_wheel=True, panel=True):
-    preflight(with_wheel)
+def apply(options, config, data, state, with_wheel=False, panel=True):
+    preflight(options, with_wheel)
     options = resolve_outputs(options)
     families = run('fc-list', ':', 'family')
     if options['font'] not in families:
@@ -319,15 +344,15 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
     backup.save([config / name for name in set(fragments) | {'kglobalshortcutsrc', 'plasmashellrc',
         'plasma-org.kde.plasma.desktop-appletsrc'}] + [config / 'kdedefaults/package'] + list(files))
     print(f'Backup: {backup.path}', flush=True)
+    (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')
     # Stop KDE's GTK synchronizer before changing any palette values.
     dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
     dbus('org.kde.kded6', '/kded', 'org.kde.kded6.unloadModule', 'gtkconfig')
-    for name in SCRIPTS:
-        kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', name)
     bindings = [(c, n, seq) for (c, n), seq in shortcut_ids().items()]
     bindings += [('kwin', 'KdeHyprLaunch' + name, seq) for name, seq in KEYS.items()]
     bindings += workspace_shortcuts()
-    bindings += [('plasmashell', 'graphite-notifications', 'Meta+A'), ('plasmashell', 'graphite-tray', 'Meta+X')]
+    if panel:
+        bindings += [('plasmashell', 'graphite-notifications', 'Meta+A'), ('plasmashell', 'graphite-tray', 'Meta+X')]
     clear_conflicts(bindings)
     for path, content in files.items():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -338,15 +363,13 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
     (config / 'kdedefaults/package').write_text(theme.THEME_ID + '\n')
     shortcut_groups = {'kwin': {name: (seq.replace(';', '\\t') or 'none') + ',none,Graphite: ' + name
                                for (component, name), seq in shortcut_ids().items()}}
+    for name, sequence in KEYS.items():
+        shortcut_groups['kwin']['KdeHyprLaunch' + name] = sequence + ',none,Graphite: ' + name
+    for component, name, sequence in workspace_shortcuts():
+        shortcut_groups['kwin'][name] = sequence + ',none,Graphite: ' + name
     merge_config(config / 'kglobalshortcutsrc', shortcut_groups)
     native_shortcuts()
-    one_shot((ROOT / 'templates/five-desktops.js').read_text(), data)
-    kwin('/KWin', 'org.kde.KWin.reconfigure')
-    kwin('/Scripting', 'org.kde.kwin.Scripting.start')
-    set_workspace_shortcuts()
-    if with_wheel:
-        if kwin('/Effects', 'org.kde.kwin.Effects.isEffectLoaded', WHEEL) != '(true,)':
-            assert kwin('/Effects', 'org.kde.kwin.Effects.loadEffect', WHEEL) == '(true,)'
+    # Load the new scripts at the next login. Unload/reload cycles have crashed Qt's GC.
     if panel:
         script = (ROOT / 'templates/panel.js').read_text().replace('@@PANEL_HEIGHT@@', str(options['panel_height']))
         script = script.replace('@@APPLICATION_TRAY_IDS@@', json.dumps(tray_ids()))
@@ -363,15 +386,17 @@ def apply(options, config, data, state, with_wheel=True, panel=True):
             if current[section].get('plugin') == 'org.kde.plasma.notifications':
                 merge_config(applets, {section + '][Shortcuts': {'global': notification_shortcut}})
                 notification_shortcut = ''
-        run('systemctl', '--user', 'restart', 'plasma-plasmashell.service')
+        restart_shell()
     if before != protected_hashes(config):
         raise RuntimeError(f'A protected desktop config changed during installation. Backup: {backup.path}')
     (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')
-    check(with_wheel)
-    print('Installed. Log out and back into KDE to reload fonts and remaining settings.')
+    print('Installed. Log out and back into KDE to activate scripts, workspaces and shortcuts. Then run: python3 install.py check')
 
 
-def check(with_wheel=True):
+def check(with_wheel=None):
+    if with_wheel is None:
+        config = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
+        with_wheel = read_config(config / 'kwinrc').getboolean('Plugins', WHEEL + 'Enabled', fallback=False)
     for name in SCRIPTS:
         loaded = kwin('/Scripting', 'org.kde.kwin.Scripting.isScriptLoaded', name) == '(true,)'
         expected = True  # The tiler stays loaded while its runtime mode is off.
@@ -398,15 +423,8 @@ def check(with_wheel=True):
 
 
 def restore(path):
-    for name in SCRIPTS:
-        kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', name)
-    kwin('/Effects', 'org.kde.kwin.Effects.unloadEffect', WHEEL)
-    run('systemctl', '--user', 'stop', 'plasma-plasmashell.service')
-    try:
-        restore_files(path)
-    finally:
-        run('systemctl', '--user', 'start', 'plasma-plasmashell.service')
-    kwin('/KWin', 'org.kde.KWin.reconfigure')
+    restore_files(path)
+    restart_shell()
     print('Settings restored. Log out and back into KDE to reload all shortcut registrations.')
 
 
@@ -430,17 +448,32 @@ def tiling_control():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', nargs='?', default='install', choices=['install', 'theme', 'build-theme', 'check', 'restore', 'tiling'])
+    parser.add_argument('command', nargs='?', default='theme', choices=['install', 'theme', 'build-theme', 'check', 'restore', 'tiling', 'doctor'])
     parser.add_argument('value', nargs='?')
     parser.add_argument('--settings', type=Path)
     parser.add_argument('--dry-run', action='store_true')
-    parser.add_argument('--without-wheel', action='store_true')
+    wheel = parser.add_mutually_exclusive_group()
+    wheel.add_argument('--with-wheel', action='store_true', help='Enable the separately compiled workspace wheel plugin')
+    wheel.add_argument('--without-wheel', action='store_true', help='Compatibility alias: wheel support is off by default')
     parser.add_argument('--no-panel', action='store_true')
     args = parser.parse_args()
     home = Path.home()
     config = Path(os.environ.get('XDG_CONFIG_HOME', home / '.config'))
     data = Path(os.environ.get('XDG_DATA_HOME', home / '.local/share'))
     state = Path(os.environ.get('XDG_STATE_HOME', home / '.local/state'))
+    if args.command == 'doctor':
+        if args.value not in [None, 'theme', 'install']:
+            parser.error('Use: install.py doctor theme|install')
+        errors = doctor.problems(sys.modules[__name__], settings(args.settings), full=args.value == 'install', with_wheel=args.with_wheel)
+        if not errors and args.value == 'install':
+            resolve_outputs(settings(args.settings))
+        if errors:
+            raise RuntimeError('Doctor found:\n  - ' + '\n  - '.join(errors))
+        print('Ready for ' + ('the full setup.' if args.value == 'install' else 'appearance installation.'))
+        return
+    if args.dry_run and args.command in ['restore', 'tiling', 'check']:
+        print('Would run ' + args.command + (' ' + args.value if args.value else '') + '. No changes made.')
+        return
     if args.command == 'install':
         options = settings(args.settings)
         if args.dry_run:
@@ -448,7 +481,7 @@ def main():
             print(f'Would merge selected KDE settings under {config}; configure a top bar per connected monitor; use five desktops per output.')
             print('Would back up touched files and leave other desktop configs unchanged. No changes made.')
         else:
-            apply(options, config, data, state, not args.without_wheel, not args.no_panel)
+            apply(options, config, data, state, args.with_wheel, not args.no_panel)
     elif args.command == 'theme':
         options = settings(args.settings)
         if args.dry_run:
@@ -463,7 +496,7 @@ def main():
         else:
             print(theme.build_archive(destination))
     elif args.command == 'check':
-        check(not args.without_wheel)
+        check(True if args.with_wheel else False if args.without_wheel else None)
     elif args.command == 'restore':
         path = Path(args.value) if args.value else Path((state / 'kde-graphite/latest-backup').read_text().strip())
         restore(path)
@@ -471,8 +504,6 @@ def main():
         if args.value not in ['on', 'off', 'toggle']:
             parser.error('Use: install.py tiling on|off|toggle')
         active = tiling_control().change(args.value)
-        if not active:
-            restore_window_decorations(data)
         print('Automatic tiling ' + ('on' if active else 'off') + '.')
 
 
