@@ -19,12 +19,6 @@ MetaScrollDesktopEffect::MetaScrollDesktopEffect() {
     };
     bind(Qt::MetaModifier, PointerAxisUp, QStringLiteral("KdeHyprWorkspaceNext"));
     bind(Qt::MetaModifier, PointerAxisDown, QStringLiteral("KdeHyprWorkspacePrev"));
-    bind(Qt::MetaModifier | Qt::ControlModifier, PointerAxisUp, QStringLiteral("KdeHyprWorkspacePrev"));
-    bind(Qt::MetaModifier | Qt::ControlModifier, PointerAxisDown, QStringLiteral("KdeHyprWorkspaceNext"));
-    bind(Qt::MetaModifier | Qt::ShiftModifier, PointerAxisUp, QStringLiteral("KdeHyprMonitorPrev"));
-    bind(Qt::MetaModifier | Qt::ShiftModifier, PointerAxisDown, QStringLiteral("KdeHyprMonitorNext"));
-    bind(Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, PointerAxisUp, QStringLiteral("KdeHyprSendPrev"));
-    bind(Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, PointerAxisDown, QStringLiteral("KdeHyprSendNext"));
 }
 bool MetaScrollDesktopEffect::supported() { return true; }
 

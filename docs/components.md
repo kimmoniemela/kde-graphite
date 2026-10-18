@@ -1,35 +1,35 @@
 # Components
 
-The appearance profile needs the Global Theme assets and the window-controls
-script. The complete keyboard/tiling workflow uses the following components.
+The normal installer applies the theme and shortcuts. It neither installs nor
+configures Kröhnkite and retains existing top bars.
 
-| Component | Purpose | Keep? |
+| Component | Purpose | Installation |
 | --- | --- | --- |
-| `krohnkite` | Automatic tiling | Optional; disabling it must leave ordinary window management. |
-| `kde-hypr-bridge` | Monitor-aware workspace switching, window moves and scratchpad | Yes, for the current 1–5 / 6–10 workspace model. |
-| `kde-hypr-launchers-v2` | Application shortcuts | Yes, for the configured launch keys. |
-| `graphite-window-controls` | Restore minimize, maximize and close controls on normal windows | Yes, for the requested window-button behavior. |
-| `org.kde.graphite.workspaces` | Display each monitor's workspace numbers, selection and occupied state | Yes, for matching bar labels and keyboard destinations. |
-| `workspace-keys.py` | Adapt shifted number-row shortcuts to the active keyboard layout | Yes, for Super+Shift+number on layouts such as Finnish and US. |
-| `launch-app.py`, `pick-color.py`, `wallpaper-settings.py` | Run application, color-picker and wallpaper shortcuts | Yes, for those bindings. |
-| `kwin_hypr_scroll_desktop` | Super+wheel workspace actions | Optional native effect. |
+| Graphite Global Theme, palette and wallpaper packages | Appearance using KDE's Breeze components | `theme` or `install` |
+| `kde-hypr-bridge` | Monitor-aware workspace switching, explicit window moves and scratchpad shortcuts | `install` |
+| `kde-hypr-launchers-v2` | Application shortcut handlers | `install` |
+| `workspace-keys.py` | Adapt shifted number-row shortcuts to the active Finnish/US XKB layout | `install` |
+| `launch-app.py`, `pick-color.py`, `wallpaper-settings.py` | Run configured application, color-picker and wallpaper shortcuts | `install` |
+| `applications.py` | Resolve KDE defaults and available optional apps | Copied with workflow runtime; no separate dependency |
+| `org.kde.graphite.workspaces` | Workspace labels and occupied-state indicators on each bar | Explicit `install --panel`; existing widgets remain otherwise |
+| `krohnkite` | Automatic tiling | Existing setup preserved; installing/configuring the bundled copy requires `--with-tiling` |
+| `graphite-window-controls` | Keep normal titlebar controls when using the bundled tiler | Installed only with `--with-tiling`; existing helper preserved |
+| `kwin_hypr_scroll_desktop` | Super+wheel up/down workspace shortcuts | Explicit `wheel` build/install command |
 
-The old `kde-hypr-launchers` script is superseded by v2. It is disabled in the
-portable configuration and was removed from this machine after backing it up.
-Names containing `hypr` are historical identifiers: these scripts run in KDE
-and do not load or edit Hyprland configuration.
+Names containing `hypr` are historical identifiers. These scripts run inside
+KDE and do not load Hyprland or edit its configuration. The superseded
+`kde-hypr-launchers` is disabled; the v2 launcher is the supported handler.
 
-`workspace-keys.py` starts with the launcher script and watches KDE's layout
-signals. It adds bindings for the shifted symbols produced by the active
-number row, retaining the canonical Super+Shift+number bindings. When the layout
-changes, old symbol bindings are released before new ones are assigned.
+`workspace-keys.py` starts with the launcher script and watches KDE keyboard
+layout signals. Old shifted-symbol bindings are released before assigning the
+new layout's symbols. It is the only persistent Python helper installed by the
+shortcut profile. The other helpers run only when a shortcut is used.
 
-Kröhnkite disconnects workspace/window signals during destruction and rejects
-pending callbacks after shutdown. No companion workspace or launcher script
-enforces window size. Enable or disable tiling using Kröhnkite's checkbox in
-KWin Scripts settings. Workspace routing and application shortcuts remain
-active. See [tiling](tiling.md).
+Workspace and launcher scripts act on explicit shortcuts. They do not enforce
+window geometry or implement automatic tiling. Kröhnkite's existing enable/
+disable behavior remains controlled by KWin Scripts settings.
 
-Script updates take effect on a new KDE login. The current session can retain
-old JavaScript callbacks; reloads of the shared QML engine have previously
-crashed KWin. Log out and back in once after updating these files.
+Script updates activate at a new KDE login. The installer avoids live KWin
+script unload/reload cycles because these previously triggered a compositor
+crash. The optional native wheel effect also needs a login after initial
+installation and a rebuild after KWin upgrades.

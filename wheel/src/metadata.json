@@ -6,9 +6,8 @@
       }
     ],
     "Category": "Window Management",
-    "Description": "KDE-only Super, Ctrl and Shift mouse-wheel workspace/monitor controls",
+    "Description": "Super+wheel up: next workspace; Super+wheel down: previous workspace",
     "EnabledByDefault": false,
-    "Id": "kwin_hypr_scroll_desktop",
     "License": "GPL",
     "Name": "Graphite workspace scroll"
   },

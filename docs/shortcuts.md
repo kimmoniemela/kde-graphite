@@ -1,18 +1,19 @@
 # Shortcuts
 
 Super means the Windows key. These are the setup's bindings; KDE's nonconflicting
-hardware and accessibility shortcuts remain available. Application names below
-are the portable defaults; `settings.local.json` can override them.
+hardware and accessibility shortcuts remain available. App shortcuts use KDE
+defaults or installed alternatives; `settings.local.json` can override or
+disable them. Missing optional apps skip their shortcut handlers.
 
 | Keys | Action |
 | --- | --- |
-| Super+Enter | Terminal (Konsole) |
+| Super+Enter | Default terminal emulator (KDE preference) |
 | Super+Space | KRunner |
-| Super+E | Files (Dolphin) |
-| Super+T | Text editor (KWrite) |
-| Super+W | Firefox |
-| Super+C / Calculator key | Calculator (KCalc) |
-| Ctrl+Shift+Escape | Plasma System Monitor |
+| Super+E | Default file manager |
+| Super+T | Default text editor |
+| Super+W | Default browser |
+| Super+C / Calculator key | Installed calculator |
+| Ctrl+Shift+Escape | Installed system monitor |
 | Super+Z | System Settings |
 | Super+X | System tray |
 | Super+A | Notifications |
@@ -23,10 +24,10 @@ are the portable defaults; `settings.local.json` can override them.
 | Print / Super+Print | Region / fullscreen screenshot |
 | Super+Q | Close window |
 | Super+Escape | Force-close selection |
-| Super+Arrows | Focus tiled window |
-| Super+Shift+Arrows | Reorder tiles |
-| Super+Alt+Space | Toggle floating |
-| Super+J | Rotate layout |
+| Super+Arrows | Focus tiled window (existing Kröhnkite setup) |
+| Super+Shift+Arrows | Reorder tiles (existing Kröhnkite setup) |
+| Super+Alt+Space | Toggle floating (existing Kröhnkite setup) |
+| Super+J | Rotate layout (existing Kröhnkite setup) |
 | Super+D | Maximize / restore |
 | Super+F | Fullscreen |
 | Alt+Tab / Super+Tab | Window switcher |
@@ -40,9 +41,6 @@ are the portable defaults; `settings.local.json` can override them.
 | Super+Ctrl+Down | First empty workspace |
 | Super+Alt+Left / Right | Focus monitor |
 | Super+Wheel Up / Down | Next / previous workspace |
-| Super+Ctrl+Wheel Up / Down | Previous / next workspace |
-| Super+Shift+Wheel Up / Down | Move window to previous / next monitor |
-| Super+Ctrl+Shift+Wheel Up / Down | Send window to previous / next workspace |
 | Super+left / right mouse drag | Move / resize |
 | Super+S | Show / hide scratchpad |
 | Super+Shift+S | Send window to scratchpad |
@@ -55,9 +53,17 @@ membership lasts for the KDE session. Super+J rotates the whole tile layout;
 it does not implement Hyprland's per-container split toggle.
 
 Directional focus, tile movement, floating toggle and layout rotation belong
-to Kröhnkite. They are unavailable when the script is disabled; KDE quick-tiling bindings are not restored automatically. Workspace,
+to Kröhnkite. Normal installation leaves these existing bindings alone; use
+`--with-tiling` only to explicitly install/configure the bundled tiler. These
+actions are unavailable when its script is disabled. Workspace,
 launcher, maximize and fullscreen bindings remain available. See
 [tiling](tiling.md) for enabling and disabling the script.
+
+Super+wheel requires the explicit `python3 install.py wheel` command and a new
+KDE login. Wheel up selects the next workspace, wheel down the previous one,
+stopping at 1 and 5. No Ctrl/Shift wheel combinations are claimed by the effect.
+Tray and notification bindings are configured only when top bars are rebuilt
+with `--panel`; existing bar bindings are retained otherwise.
 
 Each monitor has five independent KDE desktops. The bars label them 1–5 on
 the primary display and 6–10 on the secondary; key 0 means workspace 10.

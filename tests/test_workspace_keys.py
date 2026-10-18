@@ -22,6 +22,7 @@ class WorkspaceKeysTests(unittest.TestCase):
         self.assertNotIn('Meta+@', keys.sequences(2, fi[2]))
         self.assertEqual(keys.sequences(10, '')[0], 'Meta+Shift+0')
 
+    @unittest.skipUnless(importlib.util.find_spec('PySide6'), 'PySide6 is required for shortcut keys')
     def test_layout_change_releases_previous_symbols_before_rebinding(self):
         calls = []
         def run(*args):

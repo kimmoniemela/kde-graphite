@@ -14,6 +14,16 @@ spec.loader.exec_module(installer)
 
 
 class InstallTests(unittest.TestCase):
+    @unittest.skipUnless(importlib.util.find_spec('PySide6'), 'PySide6 is required for shortcut keys')
+    def test_conflicts_release_only_the_conflicting_key(self):
+        from PySide6.QtGui import QKeySequence
+        requested = QKeySequence('Meta+Q')[0].toCombined()
+        retained = QKeySequence('Alt+F4')[0].toCombined()
+        owner = ['kwin', 'OtherAction', 'KWin', 'Other action']
+        with patch.object(installer, 'dbus', side_effect=[repr((owner,)), repr(([requested, retained],)), '()']) as dbus:
+            installer.clear_conflicts([('kwin', 'Window Close', 'Meta+Q')])
+        self.assertEqual(json.loads(dbus.call_args.args[-2]), [retained])
+
     def test_merges_kconfig_without_overwriting_other_preferences(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'kwinrc'
@@ -41,9 +51,9 @@ class InstallTests(unittest.TestCase):
     def test_renders_for_destination_with_spaces_and_no_source_machine_paths(self):
         options = installer.settings()
         destination = Path('/tmp/a different home/data')
-        files = installer.payload(options, destination)
+        files = installer.payload(options, destination, with_tiling=True, panel=True)
         launchers = json.loads(files[destination / 'kde-graphite/runtime/launchers.json'])
-        self.assertEqual(launchers['Terminal'], ['konsole'])
+        self.assertEqual(launchers['Terminal'], ['@default'])
         self.assertIn(str(destination), launchers['Wallpaper'][1])
         qml = files[destination / 'kwin/scripts/kde-hypr-launchers-v2/contents/ui/main.qml'].decode()
         self.assertNotIn('@@', qml)
@@ -68,7 +78,7 @@ class InstallTests(unittest.TestCase):
             path.write_text(json.dumps({'applications': {'Files': ['dolphin']}, 'primary_output': 'DP-1'}))
             options = installer.settings(path)
             self.assertEqual(options['applications']['Files'], ['dolphin'])
-            self.assertEqual(options['applications']['Terminal'], ['konsole'])
+            self.assertEqual(options['applications']['Terminal'], ['@default'])
             self.assertEqual(options['primary_output'], 'DP-1')
 
     def test_output_mapping_uses_kde_priority_and_preserves_overrides(self):

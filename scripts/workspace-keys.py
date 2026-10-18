@@ -39,6 +39,8 @@ def shifted_symbols(layout, variant=''):
         function = getattr(lib, name)
         function.restype, function.argtypes = restype, argtypes
     context = lib.xkb_context_new(0)
+    if not context:
+        raise RuntimeError('Cannot create XKB context')
     keymap = state = None
     try:
         names = Names(None, b'pc105', layout.encode(), variant.encode(), b'')
@@ -46,7 +48,11 @@ def shifted_symbols(layout, variant=''):
         if not keymap:
             raise RuntimeError('Cannot read XKB layout: ' + layout)
         state = lib.xkb_state_new(keymap)
+        if not state:
+            raise RuntimeError('Cannot create XKB state')
         shift = lib.xkb_keymap_mod_get_index(keymap, b'Shift')
+        if shift == 0xffffffff:
+            raise RuntimeError('XKB layout has no Shift modifier: ' + layout)
         lib.xkb_state_update_mask(state, 1 << shift, 0, 0, 0, 0, 0)
         result = {}
         for position in range(1, 11):
@@ -77,7 +83,7 @@ def apply_layout(index):
         return
     layout = layouts[index][0]
     config = configparser.ConfigParser(interpolation=None, strict=False)
-    config.read(Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'kxkbrc')
+    config.read(Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'kxkbrc')
     variants = config.get('Layout', 'VariantList', fallback='').split(',')
     variant = variants[index] if index < len(variants) else ''
     symbols = shifted_symbols(layout, variant)

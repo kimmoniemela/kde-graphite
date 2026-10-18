@@ -5,10 +5,11 @@ window controls and shutdown behavior. It runs inside KWin; KDE
 remains the compositor and desktop. Source and provenance are in
 [`vendor/krohnkite/`](../vendor/krohnkite/) and [THIRD_PARTY.md](../THIRD_PARTY.md).
 
-`python3 install.py install` installs this copy and enables its KWin script at
-the next KDE login. `python3 install.py theme` and importing the Global Theme
-archive do not install or enable it. Rerunning the full installer enables the
-script again; disable it in settings afterward if you want floating windows.
+`python3 install.py install --with-tiling` explicitly installs this copy and
+enables its KWin script at the next KDE login. Normal `install`, `theme` and
+Global Theme import do not install or configure it. Normal installation keeps
+existing tiler files, settings, shortcuts and enabled state. Disable it in
+KWin Scripts settings when you want floating windows.
 
 ## Controls
 
@@ -24,7 +25,7 @@ state across logins.
 
 This is the only tiling control. There is no separate runtime mode, polling
 helper, Python toggle or bar toggle. Settings saved by the former Python
-control are ignored by this version and removed during a full-install upgrade.
+control are removed only during an explicit `--with-tiling` upgrade.
 
 ## Layout and shortcuts
 
@@ -47,7 +48,7 @@ including tiled windows. Fullscreen hides decorations normally.
 
 Use Kröhnkite's configuration button in KWin Scripts for layout and floating
 rules. Installer defaults are in [`config.json`](../config.json), under
-`kwinrc` → `Script-krohnkite`; rerunning the full installer reapplies those
+`kwinrc` → `Script-krohnkite`; using `--with-tiling` reapplies those
 listed defaults. [All shortcuts](shortcuts.md).
 
 ## Other Graphite components

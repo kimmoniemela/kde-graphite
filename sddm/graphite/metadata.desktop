@@ -1,0 +1,15 @@
+[SddmGreeterTheme]
+Name=Graphite
+Description=Graphite colors and contour wallpaper with KDE Breeze login controls
+Author=Graphite contributors; KDE Visual Design Group
+Copyright=KDE contributors; Graphite contributors
+License=LGPL-2.0-or-later
+Type=sddm-theme
+Version=1.0
+Screenshot=preview.png
+MainScript=Main.qml
+ConfigFile=theme.conf
+TranslationsDirectory=translations
+Theme-Id=graphite
+Theme-API=2.0
+QtVersion=6

@@ -5,11 +5,11 @@
   "primary_output": "",
   "secondary_output": "",
   "applications": {
-    "Terminal": ["konsole"],
-    "Files": ["dolphin"],
-    "Editor": ["kwrite"],
-    "Calculator": ["kcalc"],
-    "Browser": ["firefox"],
-    "ProcessMonitor": ["plasma-systemmonitor"]
+    "Terminal": ["@default"],
+    "Files": ["@default"],
+    "Editor": ["@default"],
+    "Calculator": ["@default"],
+    "Browser": ["@default"],
+    "ProcessMonitor": ["@default"]
   }
 }

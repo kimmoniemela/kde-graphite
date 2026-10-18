@@ -44,7 +44,7 @@ class ThemeTests(unittest.TestCase):
                 (config / name).mkdir()
                 (config / name / 'keep.conf').write_text('unchanged\n')
             protected = install.protected_hashes(config)
-            api = SimpleNamespace(**{key: getattr(install, key) for key in ['read_config', 'merge_config', 'protected_hashes', 'Backup']},
+            api = SimpleNamespace(**{key: getattr(install, key) for key in ['read_config', 'merge_config', 'protected_hashes', 'Backup', 'transaction', 'atomic_write']},
                                   run=Mock(return_value='Fira Code'), dbus=Mock(), kwin=Mock())
             with patch('doctor.require'), patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'KDE'}), contextlib.redirect_stdout(io.StringIO()):
                 theme.install_theme(install.settings(), config, data, state, api)
@@ -61,6 +61,9 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(protected, install.protected_hashes(config))
             self.assertEqual(install.read_config(config / 'kdeglobals')['KDE']['LookAndFeelPackage'], theme.THEME_ID)
             self.assertTrue((data / 'plasma/look-and-feel' / theme.THEME_ID / 'metadata.json').exists())
+            self.assertFalse((data / 'kwin/scripts').exists())
+            self.assertNotIn('Script-krohnkite', kwin)
+            self.assertNotIn('graphite-window-controlsEnabled', kwin['Plugins'])
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
             install.restore_files(backup)
             self.assertEqual((config / 'kwinrc').read_text(), original['kwinrc'])

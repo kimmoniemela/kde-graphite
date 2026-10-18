@@ -79,7 +79,6 @@ def window_control_files(data):
 def payload(options, data):
     files = {data / 'plasma/look-and-feel' / THEME_ID / path: content
              for path, content in package_files(options).items()}
-    files.update(window_control_files(data))
     # Also expose named packages in KDE's wallpaper picker.
     for name in WALLPAPERS:
         source = PACKAGE / 'contents/wallpapers' / name
@@ -120,11 +119,9 @@ def install_theme(options, config, data, state, api):
     appearance['kwinrc'] = {'org.kde.kdecoration2': {**kwin['org.kde.kdecoration2'],
                           'library': 'org.kde.breeze', 'theme': 'Breeze'},
                           'Windows': {'BorderlessMaximizedWindows': 'false'},
-                          'Script-krohnkite': {'noTileBorder': 'false', 'soleWindowNoBorders': 'false'},
                           'Plugins': {k: v for k, v in kwin['Plugins'].items()
-                                      if k.endswith('Enabled') and v == 'false'},
+                                      if k.endswith('Enabled') and v == 'false' and not k.startswith('kde-hypr-')},
                           }
-    appearance['kwinrc']['Plugins']['graphite-window-controlsEnabled'] = 'true'
     palette = api.read_config(ROOT / 'assets/color-schemes/TerminalGraphite.colors')
     appearance['kdeglobals'] = {group: dict(palette[group]) for group in palette.sections() if group != 'General'}
     fonts = font_values(options)
@@ -139,22 +136,20 @@ def install_theme(options, config, data, state, api):
     backup.save(list(files) + [config / name for name in appearance]
                 + [marker, config / 'plasma-org.kde.plasma.desktop-appletsrc'])
     print(f'Backup: {backup.path}', flush=True)
-    (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')
-    # KDE's GTK sync must be stopped before notifying it about palette changes.
-    api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
-    api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.unloadModule', 'gtkconfig')
-    for path, content in files.items():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
-    for name, groups in appearance.items():
-        api.merge_config(config / name, groups)
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(THEME_ID + '\n')
-    api.kwin('/KWin', 'org.kde.KWin.reconfigure')
-    api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript',
-             "theme = 'default';\n" + wallpaper_script(data))
-    if protected != api.protected_hashes(config):
-        raise RuntimeError(f'A protected desktop config changed. Backup: {backup.path}')
-    (state / 'kde-graphite/latest-backup').write_text(str(backup.path) + '\n')
-    print('Graphite installed and selected. Reopen System Settings > Colors & Themes > Global Theme.')
-    print('Existing panels, shortcuts, workspaces and tiling state retained.')
+    with api.transaction(backup):
+        # KDE's GTK sync must be stopped before notifying it about palette changes.
+        api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
+        api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.unloadModule', 'gtkconfig')
+        for path, content in files.items():
+            api.atomic_write(path, content)
+        for name, groups in appearance.items():
+            api.merge_config(config / name, groups)
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(THEME_ID + '\n')
+        api.kwin('/KWin', 'org.kde.KWin.reconfigure')
+        api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript',
+                 "theme = 'default';\n" + wallpaper_script(data))
+        if protected != api.protected_hashes(config):
+            raise RuntimeError(f'A protected desktop config changed. Backup: {backup.path}')
+        print('Graphite installed and selected. Reopen System Settings > Colors & Themes > Global Theme.')
+        print('Existing panels, shortcuts, workspaces and tiling state retained.')
