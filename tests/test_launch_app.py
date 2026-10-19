@@ -16,15 +16,15 @@ class LauncherTests(unittest.TestCase):
         with patch.object(launcher.pathlib.Path, 'read_text',
                           return_value=json.dumps({'Terminal': ['@default']})), \
              patch.object(launcher.sys, 'argv', ['launch-app.py', 'Terminal']), \
-             patch('applications.desktop_command', side_effect=lambda service: ['kstart', '--application', service]), \
+             patch('applications.Path.is_file', return_value=True), \
              patch.object(launcher.subprocess, 'check_output',
                           side_effect=['kitty.desktop\n', 'org.wezfurlong.wezterm.desktop\n']), \
              patch.object(launcher.subprocess, 'Popen') as launch:
             launcher.main()
             launcher.main()
         self.assertEqual([call.args[0] for call in launch.call_args_list], [
-            ['kstart', '--application', 'kitty.desktop'],
-            ['kstart', '--application', 'org.wezfurlong.wezterm.desktop'],
+            ['kstart', '--application', 'kitty'],
+            ['kstart', '--application', 'org.wezfurlong.wezterm'],
         ])
 
     def test_legacy_terminal_command_preserves_quoted_arguments(self):

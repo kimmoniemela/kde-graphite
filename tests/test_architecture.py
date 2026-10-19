@@ -40,7 +40,7 @@ class ArchitectureTests(unittest.TestCase):
             with patch.dict(os.environ, XDG_DATA_HOME=directory, XDG_DATA_DIRS=directory), \
                  patch.object(applications, 'query', return_value='custom-editor.desktop'), \
                  patch.object(applications.shutil, 'which', return_value='/bin/xdg-mime'):
-                self.assertEqual(applications.default_command('Editor'), ['kstart', '--application', 'custom-editor.desktop'])
+                self.assertEqual(applications.default_command('Editor'), ['kstart', '--application', 'custom-editor'])
                 desktop.unlink()
                 self.assertIsNone(applications.default_command('Editor'))
 

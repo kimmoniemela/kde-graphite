@@ -35,7 +35,8 @@ def desktop_command(service):
     roots += [Path(p) for p in (os.environ.get('XDG_DATA_DIRS') or '/usr/local/share:/usr/share').split(':') if p]
     if not any((root / 'applications' / filename).is_file() for root in roots):
         return None
-    return ['kstart', '--application', service]
+    # kstart looks up a desktop entry name, without the .desktop suffix.
+    return ['kstart', '--application', filename[:-len('.desktop')]]
 
 
 def default_command(name):
