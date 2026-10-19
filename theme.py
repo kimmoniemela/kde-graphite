@@ -65,17 +65,6 @@ def package_files(options):
     return files
 
 
-def window_control_files(data):
-    root = data / 'kwin/scripts/graphite-window-controls'
-    metadata = {'KPackageStructure': 'KWin/Script',
-                'KPlugin': {'Id': 'graphite-window-controls', 'Name': 'Graphite window controls',
-                            'Description': 'Keep minimize, maximize and close controls on normal windows',
-                            'Version': '1.0', 'License': 'MIT'},
-                'X-Plasma-API': 'javascript', 'X-Plasma-MainScript': 'code/main.js'}
-    return {root / 'metadata.json': (json.dumps(metadata, indent=2) + '\n').encode(),
-            root / 'contents/code/main.js': (ROOT / 'templates/window-controls.js').read_bytes()}
-
-
 def payload(options, data):
     files = {data / 'plasma/look-and-feel' / THEME_ID / path: content
              for path, content in package_files(options).items()}
@@ -113,7 +102,7 @@ def install_theme(options, config, data, state, api):
         options['font'] = 'Fira Code' if 'Fira Code' in families else 'monospace'
     files = payload(options, data)
     fragments = json.loads((ROOT / 'config.json').read_text())
-    # Appearance settings only: never enable tiling or rewrite workspace shortcuts.
+    # Appearance settings only: leave KWin scripts and workspace shortcuts untouched.
     kwin = fragments['kwinrc']
     appearance = {name: fragments[name] for name in ['breezerc', 'kscreenlockerrc', 'kded5rc']}
     appearance['kwinrc'] = {'org.kde.kdecoration2': {**kwin['org.kde.kdecoration2'],
@@ -152,4 +141,4 @@ def install_theme(options, config, data, state, api):
         if protected != api.protected_hashes(config):
             raise RuntimeError(f'A protected desktop config changed. Backup: {backup.path}')
         print('Graphite installed and selected. Reopen System Settings > Colors & Themes > Global Theme.')
-        print('Existing panels, shortcuts, workspaces and tiling state retained.')
+        print('Existing panels, shortcuts, workspaces and KWin scripts retained.')

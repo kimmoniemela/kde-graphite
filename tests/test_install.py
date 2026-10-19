@@ -19,10 +19,22 @@ class InstallTests(unittest.TestCase):
         from PySide6.QtGui import QKeySequence
         requested = QKeySequence('Meta+Q')[0].toCombined()
         retained = QKeySequence('Alt+F4')[0].toCombined()
-        owner = ['kwin', 'OtherAction', 'KWin', 'Other action']
+        owner = ['kwin', 'Window Fullscreen', 'KWin', 'Fullscreen']
         with patch.object(installer, 'dbus', side_effect=[repr((owner,)), repr(([requested, retained],)), '()']) as dbus:
             installer.clear_conflicts([('kwin', 'Window Close', 'Meta+Q')])
         self.assertEqual(json.loads(dbus.call_args.args[-2]), [retained])
+
+    @unittest.skipUnless(importlib.util.find_spec('PySide6'), 'PySide6 is required for shortcut keys')
+    def test_conflicts_preserve_independently_registered_kwin_actions(self):
+        # Any unknown script action is protected, without knowing its package name.
+        owner = ['kwin', 'IndependentScriptAction', 'KWin', 'Custom action']
+        native = ['kwin', 'Window Fullscreen', 'KWin', 'Fullscreen']
+        with patch.object(installer, 'dbus', side_effect=[repr((native,)), repr(([123],)), repr((owner,))]) as dbus:
+            with self.assertRaisesRegex(RuntimeError, 'unmanaged KWin action'):
+                installer.clear_conflicts([('kwin', 'Window Close', 'Meta+Q;Meta+W')])
+        # Even earlier native conflicts must remain unchanged when a script blocks installation.
+        self.assertEqual(dbus.call_count, 3)
+        self.assertTrue(all('setShortcut' not in call.args[2] for call in dbus.call_args_list))
 
     def test_merges_kconfig_without_overwriting_other_preferences(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -51,22 +63,17 @@ class InstallTests(unittest.TestCase):
     def test_renders_for_destination_with_spaces_and_no_source_machine_paths(self):
         options = installer.settings()
         destination = Path('/tmp/a different home/data')
-        files = installer.payload(options, destination, with_tiling=True, panel=True)
+        files = installer.payload(options, destination, panel=True)
         launchers = json.loads(files[destination / 'kde-graphite/runtime/launchers.json'])
         self.assertEqual(launchers['Terminal'], ['@default'])
-        self.assertIn(str(destination), launchers['Wallpaper'][1])
         qml = files[destination / 'kwin/scripts/kde-hypr-launchers-v2/contents/ui/main.qml'].decode()
         self.assertNotIn('@@', qml)
         self.assertIn("'/tmp/a different home/data/kde-graphite/runtime/launch-app.py'", qml)
-        tiler = destination / 'kwin/scripts/krohnkite'
-        metadata = json.loads(files[tiler / 'metadata.json'])
-        entry = tiler / 'contents' / metadata['X-Plasma-MainScript']
-        self.assertIn(entry, files)
-        self.assertNotIn(b'../code/script.js', files[entry])
-        self.assertNotIn(b'../code/script.js', files[tiler / 'contents/ui/main.qml'])
-        import re
-        imported = re.search(rb'"../code/([^\"]+)"', files[entry]).group(1).decode()
-        self.assertIn(tiler / 'contents/code' / imported, files)
+        runtime = destination / 'kde-graphite/runtime'
+        self.assertEqual({p.name for p in files if p.parent == runtime},
+                         {'launch-app.py', 'workspace-keys.py', 'applications.py', 'launchers.json'})
+        self.assertEqual({p.relative_to(destination / 'kwin/scripts').parts[0] for p in files
+                          if p.is_relative_to(destination / 'kwin/scripts')}, set(installer.SCRIPTS))
         for path, content in files.items():
             self.assertTrue(path.is_relative_to(destination))
             if path.suffix in ['.qml', '.js', '.py', '.json']:
@@ -126,7 +133,7 @@ const workspace = {
 };
 function readConfig(name) { return name === 'PrimaryOutput' ? 'PRIMARY' : 'SECONDARY'; }
 function registerShortcut(name, text, key, fn) { callbacks[key] = fn; }
-function callDBus(...args) { asynchronous.push(args[args.length-1]); }
+function callDBus() { throw Error('Workspace actions must not invoke external shortcuts'); }
 function print() {}
 function QTimer() {
     this.timeout = {connect: fn => { this.callback = fn; }};
@@ -146,13 +153,24 @@ for (const n of [10,1,9,2,8,3,7,4,6,5]) {
     drain();
     const w = workspace.activeWindow;
     if (w.output !== output || w.desktops[0] !== desktop || w.skipPager)
-        throw Error('Wrong move destination or tiling state: ' + n);
+        throw Error('Wrong move destination or pager state: ' + n);
 }
 workspace.screens = [primary];
 callbacks['Meta+0']();
 drain();
 if (workspace.selected.s !== primary || workspace.selected.d !== 5)
     throw Error('Single-monitor fallback failed');
+const w = workspace.activeWindow;
+w.noBorder = true;
+w.skipPager = false;
+callbacks['Meta+Shift+S']();
+if (!w.minimized || !w.keepAbove || w.skipPager || !w.noBorder)
+    throw Error('Scratchpad changed unrelated window properties');
+callbacks['Meta+S']();
+if (w.minimized || w.output !== primary || w.desktops[0].name !== '1')
+    throw Error('Scratchpad did not restore on the focused workspace');
+callbacks['Meta+S']();
+if (!w.minimized) throw Error('Scratchpad did not hide');
 """
         subprocess.run(['node', '-e', mock + script + checks], check=True, capture_output=True, text=True)
 
@@ -180,8 +198,6 @@ function verify() {
         throw Error('Expected one panel per screen');
     if (bars.filter(p => p.items.some(w => w.globalShortcut === 'Meta+X')).length !== 1)
         throw Error('Expected exactly one tray keyboard shortcut');
-    if (bars.some(p => p.items.some(w => w.type === 'org.kde.graphite.tiling')))
-        throw Error('Unexpected tiling toggle');
 }
 """
         # A reapply must reuse both bars; a live addition must leave the original intact.

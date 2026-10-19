@@ -5,16 +5,15 @@ another user's machine without importing this machine's desktop configuration.
 Changes below affect the repository and future installations. The audit did not
 reinstall or change the current desktop.
 
-Subsequent simplification: the runtime tiling control described in this audit
-was removed. Use Kröhnkite's checkbox in KWin Scripts settings; see
-[tiling](tiling.md). The historical findings below describe the audit at that time.
+Historical findings below cover the retained installer and appearance features.
+Use the current README for installation steps.
 
 ## Findings and changes
 
 | Priority | Finding | Resolution |
 | --- | --- | --- |
-| High | `restore --dry-run` restored files; tiling dry runs also changed state. | Dry runs return before any mutation. Regression tests cover both. |
-| High | Full install and restore unloaded/restarted live KWin scripts, despite the earlier Qt garbage-collector crash. Tiling off also loaded a temporary declarative helper. | Full install and restore defer script changes until the next login. Appearance no longer explicitly starts all scripts. Tiling off uses its existing runtime control. |
+| High | `restore --dry-run` restored files. | Dry runs return before any mutation. Regression tests cover dry runs. |
+| High | Full install and restore unloaded/restarted live KWin scripts, despite the earlier Qt garbage-collector crash. | Full install and restore defer script changes until the next login. Appearance no longer explicitly starts all scripts. |
 | High | Missing applications or QML modules could leave a partly installed desktop. | `doctor theme` / `doctor install` collect missing commands, services, Breeze assets, QML modules and widgets before installation. Full install checks connected output names before writing files. |
 | Medium | The default command replaced the desktop layout and shortcuts. | The default command now applies appearance only. The full workflow requires the explicit `install` command. |
 | Medium | The complete setup required compiling a native plugin and installing it as root. | The wheel effect is opt-in with `--with-wheel`; the ordinary full install needs runtime packages only. `check` reads the installed wheel setting. |

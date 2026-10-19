@@ -1,8 +1,10 @@
 # Graphite
 
-A KDE Plasma theme and keyboard workflow: charcoal surfaces, muted sage,
-monospace type, Breeze decorations and contour wallpapers. One repository and
-installer for supported KDE distributions; no distribution-specific setup files.
+A minimal KDE Plasma theme and keyboard-driven desktop workflow.
+
+Charcoal surfaces, muted sage, monospace type, Breeze decorations and contour
+wallpapers. One repository and installer for supported KDE distributions; no
+distribution-specific setup files.
 
 ![Graphite preview](theme/org.kde.graphite.desktop/contents/previews/preview.png)
 
@@ -36,11 +38,12 @@ runtime and reports missing components. Use your distribution's Python with
 its KDE/Qt packages. Compiler tools and Qt development tools are not needed.
 
 Installation applies appearance and shortcuts while preserving existing panels
-and Kröhnkite files, settings and enabled state. The workflow selects five
-independent desktops per monitor. Super+1–5 selects the primary monitor's
+and independently installed KWin scripts and their settings. The workflow
+selects five independent desktops per monitor. Super+1–5 selects the primary monitor's
 workspaces; Super+6–0 selects the secondary monitor's. Add Shift to move a
 window. With one monitor, both banks address the same five desktops.
-See [shortcuts](docs/shortcuts.md).
+Conflicts with unmanaged KWin shortcut actions stop installation so their
+bindings can be resolved in System Settings. See [shortcuts](docs/shortcuts.md).
 
 ## Appearance only
 
@@ -52,8 +55,8 @@ python3 install.py theme
 Running `python3 install.py` also applies appearance only. It needs Plasma 6,
 Python 3.10+, Fontconfig, GDBus and Breeze. It changes colors, fonts, wallpaper,
 lock-screen appearance and visual effects while retaining panels, workspaces,
-shortcuts and tiling. No PySide6, compiler, terminal emulator or other app is
-required. Missing fonts fall back to an installed monospace family.
+shortcuts and KWin scripts. No PySide6, compiler, terminal emulator or other
+app is required. Missing fonts fall back to an installed monospace family.
 
 The theme appears in System Settings → Colors & Themes → Global Theme.
 A standalone archive can also be built with `python3 install.py build-theme`;
@@ -88,8 +91,6 @@ to enable shortcuts for optional apps added later.
 
 - `install --panel`: create or rebuild a top bar per display. This replaces
   widgets on existing top bars; other panels remain.
-- `install --with-tiling`: install and configure the bundled Kröhnkite copy.
-  Normal installation preserves your existing tiler. See [tiling](docs/tiling.md).
 - `wheel`: build and install Super+wheel up/down workspace switching using
   existing compiler, Qt/KF6 and KWin development files. This is a native plugin;
   rebuild after KWin upgrades and log in again. No packages are installed.
@@ -97,13 +98,14 @@ to enable shortcuts for optional apps added later.
   component requiring administrator access. Desktop installation leaves the
   login manager alone. Preview it before applying it.
 
-Screenshots, emoji selection and clipboard color picking are enabled only when
-their tools are available. The color picker uses wl-copy. These tools are not
-prerequisites for the rest of the workflow.
+Screenshot and emoji shortcuts are enabled when their tools are available.
+These tools are optional for the rest of the workflow.
 
 ## Recovery and updates
 
-Update the checkout and run the same install command again. Each operation
+Update the checkout and run the same install command again. Workflow upgrades
+remove retired Graphite utility helpers and their shortcut registrations, with
+backups. Independently installed KWin scripts remain untouched. Each operation
 backs up its touched files under `$XDG_STATE_HOME/kde-graphite/backups/`
 (default `~/.local/state`). Failed desktop writes automatically restore saved
 files; a new login reloads any live KDE state already changed.

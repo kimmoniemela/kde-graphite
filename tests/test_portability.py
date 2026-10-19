@@ -44,7 +44,7 @@ class PortabilityTests(unittest.TestCase):
             self.assertEqual((config / 'kwinrc').read_text(), original)
             self.assertFalse((config / 'plasma-workspace/env/graphite-wheel.sh').exists())
 
-    def test_minimal_install_preserves_existing_tiling_effects_and_bars(self):
+    def test_install_preserves_third_party_scripts_effects_and_bars(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config, data, state = [root / name for name in ['config', 'data', 'state']]
@@ -59,9 +59,16 @@ class PortabilityTests(unittest.TestCase):
             tiler = data / 'kwin/scripts/krohnkite/contents/code/script.js'
             tiler.parent.mkdir(parents=True)
             tiler.write_bytes(b'existing tiler')
-            obsolete = data / 'kde-graphite/runtime/tiling-control.py'
-            obsolete.parent.mkdir(parents=True)
-            obsolete.write_bytes(b'existing legacy control')
+            helper = data / 'kwin/scripts/graphite-window-controls/contents/code/main.js'
+            helper.parent.mkdir(parents=True)
+            helper.write_bytes(b'existing helper')
+            runtime = data / 'kde-graphite/runtime'
+            runtime.mkdir(parents=True)
+            for filename in install.RETIRED_UTILITIES.values():
+                (runtime / filename).write_bytes(b'old Graphite utility')
+            with (config / 'kglobalshortcutsrc').open('a') as handle:
+                for name in install.RETIRED_UTILITIES:
+                    handle.write('KdeHyprLaunch' + name + '=Meta+P,none,Old utility\n')
             with patch.object(install, 'preflight'), patch.object(install, 'resolve_outputs', side_effect=lambda o: o), \
                  patch.object(install, 'run', return_value='Fira Code'), patch.object(install, 'dbus'), \
                  patch.object(install, 'clear_conflicts'), patch.object(install, 'native_shortcuts'), \
@@ -75,12 +82,20 @@ class PortabilityTests(unittest.TestCase):
             self.assertEqual(kwin['Plugins'][install.WHEEL + 'Enabled'], 'true')
             self.assertEqual(kwin['Windows']['FocusPolicy'], 'ClickToFocus')
             self.assertEqual(tiler.read_bytes(), b'existing tiler')
-            self.assertEqual(obsolete.read_bytes(), b'existing legacy control')
             self.assertEqual(applets.read_text(), 'existing bars\n')
             shortcuts = install.read_config(config / 'kglobalshortcutsrc')['kwin']
             self.assertEqual(shortcuts['KrohnkiteFocusLeft'], 'Meta+Left,none,Focus')
             self.assertEqual(shortcuts['Overview'], 'Meta+O,none,Overview')
-            self.assertFalse((data / 'kwin/scripts/graphite-window-controls').exists())
+            self.assertEqual(helper.read_bytes(), b'existing helper')
+            for name, filename in install.RETIRED_UTILITIES.items():
+                self.assertNotIn('KdeHyprLaunch' + name, shortcuts)
+                self.assertFalse((runtime / filename).exists())
+            backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
+            entries = json.loads((backup / 'manifest.json').read_text())
+            self.assertFalse(any(Path(entry['path']).is_relative_to(data / 'kwin/scripts/krohnkite') for entry in entries))
+            install.restore_files(backup)
+            for filename in install.RETIRED_UTILITIES.values():
+                self.assertEqual((runtime / filename).read_bytes(), b'old Graphite utility')
 
     def test_doctor_uses_qt_runtime_without_development_tools(self):
         api = SimpleNamespace(kwin=Mock(return_value='KWin version: 6.7.5'),
@@ -107,7 +122,7 @@ class PortabilityTests(unittest.TestCase):
             errors = doctor.problems(api, install.settings(), full=True)
             for command in ['gdbus', 'kstart', 'kscreen-doctor', 'kreadconfig6']:
                 self.assertIn('Missing command: ' + command, errors)
-            self.assertFalse(any('dolphin' in error or 'wl-copy' in error for error in errors))
+            self.assertFalse(any('dolphin' in error for error in errors))
             api.kwin.assert_not_called()
             api.dbus.assert_not_called()
 
@@ -152,10 +167,7 @@ class PortabilityTests(unittest.TestCase):
             config, data, state = [root / name for name in ['config', 'data', 'state']]
             (config / 'hypr').mkdir(parents=True)
             (config / 'hypr/hyprland.conf').write_text('keep this\n')
-            (config / 'kwinrc').write_text('[Windows]\nUnrelated=keep\n[Script-krohnkite]\nruntimeEnabled=false\n')
-            obsolete = data / 'kde-graphite/runtime/tiling-control.py'
-            obsolete.parent.mkdir(parents=True)
-            obsolete.write_text('# superseded toggle\n')
+            (config / 'kwinrc').write_text('[Windows]\nUnrelated=keep\n')
             original = (config / 'kwinrc').read_bytes()
             protected = install.protected_hashes(config)
             options = install.settings()
@@ -165,7 +177,7 @@ class PortabilityTests(unittest.TestCase):
                  patch.object(install, 'kwin', side_effect=AssertionError('Do not reload live KWin scripts')), \
                  patch.object(install, 'clear_conflicts'), patch.object(install, 'native_shortcuts'), \
                  contextlib.redirect_stdout(io.StringIO()):
-                install.apply(options, config, data, state, panel=False, with_tiling=True)
+                install.apply(options, config, data, state, panel=False)
             self.assertEqual(protected, install.protected_hashes(config))
             self.assertEqual(install.read_config(config / 'kwinrc')['Windows']['Unrelated'], 'keep')
             self.assertEqual(install.read_config(config / 'kwinrc')['org.kde.kdecoration2']['library'], 'org.kde.breeze')
@@ -173,10 +185,7 @@ class PortabilityTests(unittest.TestCase):
             shortcuts = install.read_config(config / 'kglobalshortcutsrc')['kwin']
             self.assertTrue(shortcuts['KdeHyprLaunchTerminal'].startswith('Meta+Return,'))
             self.assertTrue(shortcuts['KdeHyprSendDesktop10'].startswith('Meta+Shift+0,'))
-            self.assertFalse((data / 'kde-graphite/runtime/tiling-control.py').exists())
-            self.assertNotIn('runtimeEnabled', install.read_config(config / 'kwinrc')['Script-krohnkite'])
             self.assertFalse((data / 'plasma/plasmoids/org.kde.graphite.workspaces/metadata.json').is_file())
-            self.assertFalse((data / 'plasma/plasmoids/org.kde.graphite.tiling/metadata.json').exists())
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
             with patch.object(install, 'restart_shell'), \
                  patch.object(install, 'kwin', side_effect=AssertionError('Restore must not unload live scripts')), \
@@ -184,7 +193,6 @@ class PortabilityTests(unittest.TestCase):
                 install.restore(backup)
             self.assertEqual((config / 'kwinrc').read_bytes(), original)
             self.assertEqual(protected, install.protected_hashes(config))
-            self.assertEqual(obsolete.read_text(), '# superseded toggle\n')
 
     def test_missing_dependencies_leave_destination_untouched(self):
         with tempfile.TemporaryDirectory() as directory:

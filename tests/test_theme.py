@@ -62,8 +62,6 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(install.read_config(config / 'kdeglobals')['KDE']['LookAndFeelPackage'], theme.THEME_ID)
             self.assertTrue((data / 'plasma/look-and-feel' / theme.THEME_ID / 'metadata.json').exists())
             self.assertFalse((data / 'kwin/scripts').exists())
-            self.assertNotIn('Script-krohnkite', kwin)
-            self.assertNotIn('graphite-window-controlsEnabled', kwin['Plugins'])
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
             install.restore_files(backup)
             self.assertEqual((config / 'kwinrc').read_text(), original['kwinrc'])

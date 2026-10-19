@@ -19,15 +19,9 @@ disable them. Missing optional apps skip their shortcut handlers.
 | Super+A | Notifications |
 | Super+V | Clipboard |
 | Super+period | Emoji picker |
-| Super+P | Color picker; copies hex color |
-| Super+Shift+W | Wallpaper settings |
 | Print / Super+Print | Region / fullscreen screenshot |
 | Super+Q | Close window |
 | Super+Escape | Force-close selection |
-| Super+Arrows | Focus tiled window (existing Kröhnkite setup) |
-| Super+Shift+Arrows | Reorder tiles (existing Kröhnkite setup) |
-| Super+Alt+Space | Toggle floating (existing Kröhnkite setup) |
-| Super+J | Rotate layout (existing Kröhnkite setup) |
 | Super+D | Maximize / restore |
 | Super+F | Fullscreen |
 | Alt+Tab / Super+Tab | Window switcher |
@@ -48,16 +42,8 @@ disable them. Missing optional apps skip their shortcut handlers.
 | Super+Alt+C | Session menu |
 | Super+Plus / Minus | Zoom; keypad supported |
 
-The scratchpad uses minimized floating windows, not a separate desktop. Its
-membership lasts for the KDE session. Super+J rotates the whole tile layout;
-it does not implement Hyprland's per-container split toggle.
-
-Directional focus, tile movement, floating toggle and layout rotation belong
-to Kröhnkite. Normal installation leaves these existing bindings alone; use
-`--with-tiling` only to explicitly install/configure the bundled tiler. These
-actions are unavailable when its script is disabled. Workspace,
-launcher, maximize and fullscreen bindings remain available. See
-[tiling](tiling.md) for enabling and disabling the script.
+The scratchpad keeps a session-local list of windows and uses native KWin
+minimize/restore, keep-above and explicit workspace moves.
 
 Super+wheel requires the explicit `python3 install.py wheel` command and a new
 KDE login. Wheel up selects the next workspace, wheel down the previous one,

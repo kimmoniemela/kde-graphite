@@ -4,7 +4,6 @@ from pathlib import Path
 import shlex
 import shutil
 import subprocess
-import sys
 
 DEFAULT = ['@default']
 CANDIDATES = {
@@ -59,7 +58,7 @@ def default_command(name):
     return next(([app] for app in CANDIDATES[name] if shutil.which(app)), None)
 
 
-def launchers(options, runtime):
+def launchers(options):
     """Keep defaults dynamic; omit unavailable optional apps from shortcut handlers."""
     commands, warnings = {}, []
     for name, argv in options['applications'].items():
@@ -82,10 +81,5 @@ def launchers(options, runtime):
     commands.update({
         'SessionMenu': ['gdbus', 'call', '--session', '--dest', 'org.kde.LogoutPrompt',
                         '--object-path', '/LogoutPrompt', '--method', 'org.kde.LogoutPrompt.promptAll'],
-        'Wallpaper': [sys.executable, str(runtime / 'wallpaper-settings.py')],
     })
-    if shutil.which('wl-copy'):
-        commands['ColorPicker'] = [sys.executable, str(runtime / 'pick-color.py')]
-    else:
-        warnings.append('ColorPicker: wl-copy is unavailable; shortcut skipped.')
     return commands, warnings

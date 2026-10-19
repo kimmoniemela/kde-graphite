@@ -22,14 +22,16 @@ import doctor
 import applications
 
 ROOT = Path(__file__).resolve().parent
-SCRIPTS = ('krohnkite', 'kde-hypr-bridge', 'kde-hypr-launchers-v2', 'graphite-window-controls')
+SCRIPTS = ('kde-hypr-bridge', 'kde-hypr-launchers-v2')
+RUNTIME_SCRIPTS = ('launch-app.py', 'workspace-keys.py')
+# Upgrade cleanup applies only to these retired Graphite utilities.
+RETIRED_UTILITIES = {'Wallpaper': 'wallpaper-settings.py', 'ColorPicker': 'pick-color.py'}
 WHEEL = 'kwin_hypr_scroll_desktop'
 KEYS = {
     'Terminal': 'Meta+Return', 'Files': 'Meta+E', 'Editor': 'Meta+T',
     'Calculator': 'Meta+C', 'CalculatorKey': 'Calculator', 'Browser': 'Meta+W',
     'Launcher': 'Meta+Space', 'Settings': 'Meta+Z', 'Emoji': 'Meta+.',
     'ProcessMonitor': 'Ctrl+Shift+Esc', 'SessionMenu': 'Meta+Alt+C',
-    'Wallpaper': 'Meta+Shift+W', 'ColorPicker': 'Meta+P',
     'ScreenshotRegion': 'Print', 'ScreenshotFull': 'Meta+Print',
 }
 
@@ -129,14 +131,29 @@ def atomic_copy(source, target):
         temporary_path.unlink(missing_ok=True)
 
 
-def retire_tiling_control(config, data):
-    """Remove the superseded runtime toggle when upgrading a full setup."""
-    (data / 'kde-graphite/runtime/tiling-control.py').unlink(missing_ok=True)
-    path = config / 'kwinrc'
-    settings = read_config(path)
-    if settings.has_section('Script-krohnkite') and settings.remove_option('Script-krohnkite', 'runtimeEnabled'):
-        with path.open('w') as handle:
-            settings.write(handle, space_around_delimiters=False)
+def retire_utilities(config, data):
+    """Remove only Graphite's retired utility files and shortcut registrations."""
+    for filename in RETIRED_UTILITIES.values():
+        (data / 'kde-graphite/runtime' / filename).unlink(missing_ok=True)
+    path = config / 'kglobalshortcutsrc'
+    if not path.exists():
+        return
+    actions = {'KdeHyprLaunch' + name for name in RETIRED_UTILITIES}
+    lines, group = [], None
+    for line in path.read_text().splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith('[') and stripped.endswith(']'):
+            group = stripped[1:-1]
+        key = line.split('=', 1)[0].strip()
+        name = re.sub(r'\[\$[edi]+\]', '', key)
+        if group in ('kwin', 'kwin][$i') and name in actions:
+            if '[$i]' in group or '[$i]' in key:
+                raise RuntimeError(f'KConfig shortcut is locked: {path}: {key}')
+            ids = json.dumps(['kwin', name, 'KWin', 'Graphite: ' + name])
+            dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, '[]', '4')
+            continue
+        lines.append(line)
+    atomic_write(path, ''.join(lines).encode())
 
 
 def settings(path=None):
@@ -171,40 +188,19 @@ def settings(path=None):
     return result
 
 
-def payload(options, data, with_tiling=False, panel=False):
+def payload(options, data, panel=False):
     """Render portable templates for one user's XDG data directory."""
     files = theme.payload(options, data)
-    if with_tiling:
-        files.update(theme.window_control_files(data))
     runtime = data / 'kde-graphite/runtime'
-    for source in (ROOT / 'scripts').glob('*.py'):
-        files[runtime / source.name] = source.read_bytes()
+    for name in RUNTIME_SCRIPTS:
+        files[runtime / name] = (ROOT / 'scripts' / name).read_bytes()
     files[runtime / 'applications.py'] = (ROOT / 'applications.py').read_bytes()
-    commands, _ = applications.launchers(options, runtime)
+    commands, _ = applications.launchers(options)
     files[runtime / 'launchers.json'] = (json.dumps(commands, indent=2) + '\n').encode()
     for source in ((ROOT / 'widgets').rglob('*') if panel else []):
         if source.is_file() and '__pycache__' not in source.parts:
             files[data / 'plasma/plasmoids' / source.relative_to(ROOT / 'widgets')] = source.read_bytes()
     scripts = data / 'kwin/scripts'
-    for source in ((ROOT / 'vendor/krohnkite').rglob('*') if with_tiling else []):
-        if source.is_file():
-            files[scripts / 'krohnkite' / source.relative_to(ROOT / 'vendor/krohnkite')] = source.read_bytes()
-    # Qt caches imported JavaScript by URL for the lifetime of the session.
-    # Version module URLs to avoid cached imports; activate updates at the next login.
-    if with_tiling:
-        krohnkite = scripts / 'krohnkite'
-        script = files[krohnkite / 'contents/code/script.js']
-        main_qml = files[krohnkite / 'contents/ui/main.qml']
-        version = hashlib.sha256(script + main_qml).hexdigest()[:12]
-        files[krohnkite / f'contents/code/script-{version}.js'] = script
-        rendered_qml = main_qml.replace(b'../code/script.js', f'../code/script-{version}.js'.encode())
-        files[krohnkite / f'contents/ui/main-{version}.qml'] = rendered_qml
-        # KWin's normal script loader uses ui/main.qml even when metadata names another entry.
-        files[krohnkite / 'contents/ui/main.qml'] = rendered_qml
-        metadata_path = krohnkite / 'metadata.json'
-        metadata = json.loads(files[metadata_path])
-        metadata['X-Plasma-MainScript'] = f'ui/main-{version}.qml'
-        files[metadata_path] = (json.dumps(metadata, indent=2) + '\n').encode()
     for name, api, main in [('kde-hypr-bridge', 'javascript', 'code/main.js'),
                             ('kde-hypr-launchers-v2', 'declarativescript', 'ui/main.qml')]:
         metadata = {'KPackageStructure': 'KWin/Script', 'KPlugin': {'Id': name,
@@ -284,58 +280,19 @@ def protected_hashes(config):
             for name in names for path in (config / name).rglob('*') if path.is_file()}
 
 
-def one_shot(code, data):
-    path = data / 'kde-graphite/runtime/operation.js'
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(code)
-    name = 'graphite-operation-' + uuid.uuid4().hex
-    index = ast.literal_eval(kwin('/Scripting', 'org.kde.kwin.Scripting.loadScript', str(path), name))[0]
-    try:
-        kwin(f'/Scripting/Script{index}', 'org.kde.kwin.Script.run')
-    finally:
-        kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', name)
-
-
-def restore_window_decorations(data):
-    """Restore normal titlebars after unloading the tiler."""
-    path = data / 'kde-graphite/runtime/restore-decorations.qml'
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("""import QtQuick
-import org.kde.kwin
-Item {
-    Component.onCompleted: {
-        for (const window of Workspace.stackingOrder) {
-            if (window.normalWindow && !window.specialWindow && !window.fullScreen)
-                window.noBorder = false;
-        }
-    }
-}
-""")
-    name = 'graphite-restore-decorations-' + uuid.uuid4().hex
-    index = ast.literal_eval(kwin('/Scripting', 'org.kde.kwin.Scripting.loadDeclarativeScript', str(path), name))[0]
-    try:
-        kwin(f'/Scripting/Script{index}', 'org.kde.kwin.Script.run')
-        import time
-        # Declarative scripts load asynchronously; keep the helper alive through completion.
-        time.sleep(1)
-    finally:
-        kwin('/Scripting', 'org.kde.kwin.Scripting.unloadScript', name)
-
-
-def shortcut_ids(with_tiling=False):
-    result = json.loads((ROOT / 'shortcuts.json').read_text())
-    if not with_tiling:
-        # Keep the existing tiler and native navigation preferences. Only clear
-        # native desktop-number bindings that compete with our workspace keys.
-        result = {key: value for key, value in result.items()
-                  if not key.startswith('Krohnkite') and
-                  (value or re.fullmatch(r'(Switch to|Window to) Desktop \d+', key))}
-    return {('kwin', key): value for key, value in result.items()}
+def shortcut_ids():
+    return {('kwin', key): value for key, value in
+            json.loads((ROOT / 'shortcuts.json').read_text()).items()}
 
 
 def clear_conflicts(bindings):
     from PySide6.QtGui import QKeySequence
     base = ('org.kde.kglobalaccel', '/kglobalaccel')
+    managed = set(shortcut_ids()) | {(c, n) for c, n, _ in workspace_shortcuts()}
+    managed.update(('kwin', 'KdeHyprLaunch' + name) for name in KEYS)
+    # These native defaults compete with Graphite's maximize and browser keys.
+    native_defaults = {('kwin', 'Show Desktop'), ('kwin', 'Overview')}
+    changes = {}
     for component, name, sequences in bindings:
         for sequence in sequences.split(';'):
             if not sequence:
@@ -344,17 +301,21 @@ def clear_conflicts(bindings):
             reply = dbus(*base, 'org.kde.KGlobalAccel.action', str(key))
             owner = ast.literal_eval(re.sub(r'@as\s*', '', reply))[0]
             if owner and owner[:2] != [component, name]:
+                if owner[0] == 'kwin' and tuple(owner[:2]) not in managed | native_defaults:
+                    raise RuntimeError(f'{sequence} belongs to an unmanaged KWin action: {owner[1]}. '
+                                       'Resolve the conflict in System Settings before installing.')
                 reply = dbus(*base, 'org.kde.KGlobalAccel.shortcut', json.dumps(owner))
                 current = ast.literal_eval(re.sub(r'@ai\s*', '', reply))[0]
-                remaining = [code for code in current if code != key]
-                dbus(*base, 'org.kde.KGlobalAccel.setShortcut', json.dumps(owner), json.dumps(remaining), '4')
+                ids = json.dumps(owner)
+                previous = changes.get(ids, current)
+                changes[ids] = [code for code in previous if code != key]
+    for ids, remaining in changes.items():
+        dbus(*base, 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(remaining), '4')
 
 
-def native_shortcuts(with_tiling=False):
+def native_shortcuts():
     from PySide6.QtGui import QKeySequence
-    for (component, name), sequences in shortcut_ids(with_tiling).items():
-        if name.startswith('Krohnkite'):
-            continue  # Real QML handlers register these on script startup.
+    for (component, name), sequences in shortcut_ids().items():
         keys = [QKeySequence(s)[0].toCombined() for s in sequences.split(';') if s]
         ids = json.dumps([component, name, 'KWin', name])
         dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(keys), '4')
@@ -371,15 +332,6 @@ def workspace_shortcuts():
         'Empty': 'Meta+Ctrl+Down', 'ScratchSend': 'Meta+Shift+S', 'ScratchToggle': 'Meta+S',
     }.items()]
     return bindings
-
-
-def set_workspace_shortcuts():
-    from PySide6.QtGui import QKeySequence
-    # Explicitly update saved bindings too, including upgrades from disabled actions.
-    for component, name, sequence in workspace_shortcuts():
-        ids = json.dumps([component, name, 'KWin', 'Graphite: ' + name])
-        keys = [QKeySequence(sequence)[0].toCombined()]
-        dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(keys), '4')
 
 
 def tray_ids():
@@ -435,22 +387,16 @@ def resolve_outputs(options):
     return options
 
 
-def apply(options, config, data, state, with_wheel=False, panel=False, with_tiling=False):
+def apply(options, config, data, state, with_wheel=False, panel=False):
     preflight(options, with_wheel, panel)
     options = resolve_outputs(options)
     families = run('fc-list', ':', 'family')
     if options['font'] not in families:
         options['font'] = 'Fira Code' if 'Fira Code' in families else 'monospace'
-    files = payload(options, data, with_tiling=with_tiling, panel=panel)
+    files = payload(options, data, panel=panel)
     launchers = json.loads(files[data / 'kde-graphite/runtime/launchers.json'])
     fragments = json.loads((ROOT / 'config.json').read_text())
-    if not with_tiling:
-        del fragments['kwinrc']['Script-krohnkite']
-        del fragments['kwinrc']['Plugins']['krohnkiteEnabled']
-        del fragments['kwinrc']['Plugins']['graphite-window-controlsEnabled']
-        fragments['kwinrc']['Windows'] = {
-            'BorderlessMaximizedWindows': 'false', 'PerOutputVirtualDesktops': 'true'}
-    # Optional native effects and existing tiling are outside the normal install.
+    # Preserve the wheel state unless explicitly enabling the native effect.
     fragments['kwinrc']['Plugins'].pop(WHEEL + 'Enabled', None)
     if with_wheel:
         fragments['kwinrc']['Plugins'][WHEEL + 'Enabled'] = 'true'
@@ -465,15 +411,16 @@ def apply(options, config, data, state, with_wheel=False, panel=False, with_tili
     fragments['kwinrc']['Desktops'] = {'Number': '5', 'Rows': '1', **{f'Name_{n}': str(n) for n in range(1, 6)}}
     fragments['plasmarc'] = {'Theme': {'name': 'default'}}
     before = protected_hashes(config)
+    retired = [data / 'kde-graphite/runtime' / name for name in RETIRED_UTILITIES.values()]
     backup = Backup(state)
     backup.save([config / name for name in set(fragments) | {'kglobalshortcutsrc', 'plasmashellrc',
-        'plasma-org.kde.plasma.desktop-appletsrc'}] + [config / 'kdedefaults/package', data / 'kde-graphite/runtime/tiling-control.py'] + list(files))
+        'plasma-org.kde.plasma.desktop-appletsrc'}] + [config / 'kdedefaults/package'] + retired + list(files))
     print(f'Backup: {backup.path}', flush=True)
     with transaction(backup):
         # Stop KDE's GTK synchronizer before changing any palette values.
         dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
         dbus('org.kde.kded6', '/kded', 'org.kde.kded6.unloadModule', 'gtkconfig')
-        bindings = [(c, n, seq) for (c, n), seq in shortcut_ids(with_tiling).items()]
+        bindings = [(c, n, seq) for (c, n), seq in shortcut_ids().items()]
         bindings += [('kwin', 'KdeHyprLaunch' + name, seq) for name, seq in KEYS.items() if name in launchers]
         bindings += workspace_shortcuts()
         if panel:
@@ -483,18 +430,17 @@ def apply(options, config, data, state, with_wheel=False, panel=False, with_tili
             atomic_write(path, content)
         for name, groups in fragments.items():
             merge_config(config / name, groups)
-        if with_tiling:
-            retire_tiling_control(config, data)
+        retire_utilities(config, data)
         (config / 'kdedefaults').mkdir(parents=True, exist_ok=True)
         (config / 'kdedefaults/package').write_text(theme.THEME_ID + '\n')
         shortcut_groups = {'kwin': {name: (seq.replace(';', '\\t') or 'none') + ',none,Graphite: ' + name
-                                   for (component, name), seq in shortcut_ids(with_tiling).items()}}
+                                   for (component, name), seq in shortcut_ids().items()}}
         for name, sequence in KEYS.items():
             shortcut_groups['kwin']['KdeHyprLaunch' + name] = (sequence if name in launchers else 'none') + ',none,Graphite: ' + name
         for component, name, sequence in workspace_shortcuts():
             shortcut_groups['kwin'][name] = sequence + ',none,Graphite: ' + name
         merge_config(config / 'kglobalshortcutsrc', shortcut_groups)
-        native_shortcuts(with_tiling)
+        native_shortcuts()
         # Load the new scripts at the next login. Unload/reload cycles have crashed Qt's GC.
         dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', theme.wallpaper_script(data))
         if panel:
@@ -638,15 +584,14 @@ def main():
     panels = parser.add_mutually_exclusive_group()
     panels.add_argument('--panel', action='store_true', help='Create or replace top bars; existing bars are retained by default')
     panels.add_argument('--no-panel', action='store_true', help='Compatibility alias: retain existing bars')
-    parser.add_argument('--with-tiling', action='store_true', help='Explicitly install and configure the bundled Kröhnkite setup')
     args = parser.parse_args()
     if args.value and args.command not in ['doctor', 'build-theme', 'restore']:
         parser.error('Unexpected argument for ' + args.command + ': ' + args.value)
-    if args.command not in ['install', 'doctor'] and (args.panel or args.no_panel or args.with_tiling):
-        parser.error('--panel, --no-panel and --with-tiling apply only to install or doctor install')
+    if args.command not in ['install', 'doctor'] and (args.panel or args.no_panel):
+        parser.error('--panel and --no-panel apply only to install or doctor install')
     if args.command not in ['install', 'doctor', 'check'] and (args.with_wheel or args.without_wheel):
         parser.error('Wheel verification flags apply only to install, doctor install or check')
-    if args.command == 'doctor' and args.value != 'install' and (args.panel or args.no_panel or args.with_tiling or args.with_wheel or args.without_wheel):
+    if args.command == 'doctor' and args.value != 'install' and (args.panel or args.no_panel or args.with_wheel or args.without_wheel):
         parser.error('Workflow flags require doctor install')
     if args.settings and args.command not in ['install', 'theme', 'doctor']:
         parser.error('--settings applies only to install, theme or doctor')
@@ -672,13 +617,13 @@ def main():
     if args.command == 'install':
         options = settings(args.settings)
         if args.dry_run:
-            print(f'Would install {len(payload(options, data, with_tiling=args.with_tiling, panel=args.panel))} asset/script files under {data}.')
+            print(f'Would install {len(payload(options, data, panel=args.panel))} asset/script files under {data}.')
             print(f'Would merge theme and shortcut settings under {config}; use five desktops per output.')
             print('Would ' + ('replace/create top bars.' if args.panel else 'retain existing bars.'))
-            print('Would ' + ('install and configure Kröhnkite.' if args.with_tiling else 'retain all existing Kröhnkite files, settings and shortcuts.'))
+            print('Would remove retired Graphite utility helpers and shortcut registrations, with backups.')
             print('Would back up touched files and leave other desktop configs unchanged. No changes made.')
         else:
-            apply(options, config, data, state, args.with_wheel, args.panel, args.with_tiling)
+            apply(options, config, data, state, args.with_wheel, args.panel)
     elif args.command == 'wheel':
         if args.dry_run:
             print(f'Would build the project wheel effect using installed tools; copy it under {data / "kde-graphite/wheel"}.')
@@ -690,7 +635,7 @@ def main():
         options = settings(args.settings)
         if args.dry_run:
             print(f'Would install Graphite under {data / "plasma/look-and-feel" / theme.THEME_ID}.')
-            print('Would apply appearance and lock-screen settings; retain panels, workspaces, shortcuts and tiling.')
+            print('Would apply appearance and lock-screen settings; retain panels, workspaces, shortcuts and KWin scripts.')
         else:
             theme.install_theme(options, config, data, state, sys.modules[__name__])
     elif args.command == 'build-theme':

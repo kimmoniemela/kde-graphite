@@ -22,7 +22,7 @@ class ArchitectureTests(unittest.TestCase):
             files = install.payload(install.settings(), Path('/tmp/new home/data'))
             commands = json.loads(files[Path('/tmp/new home/data/kde-graphite/runtime/launchers.json')])
             qml = files[Path('/tmp/new home/data/kwin/scripts/kde-hypr-launchers-v2/contents/ui/main.qml')].decode()
-        self.assertEqual(set(commands), {'SessionMenu', 'Wallpaper'})
+        self.assertEqual(set(commands), {'SessionMenu'})
         self.assertNotIn('KdeHyprLaunchCalculator', qml)
         self.assertNotIn('KdeHyprLaunchTerminal', qml)
         self.assertIn('KdeHyprLaunchSessionMenu', qml)

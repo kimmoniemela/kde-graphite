@@ -1,10 +1,7 @@
 {
   "kwinrc": {
     "Windows": {
-      "AutoRaise": "false",
       "BorderlessMaximizedWindows": "false",
-      "DelayFocusInterval": "150",
-      "FocusPolicy": "FocusFollowsMouse",
       "PerOutputVirtualDesktops": "true"
     },
     "org.kde.kdecoration2": {
@@ -31,32 +28,10 @@
       "squashEnabled": "false",
       "windowapertureEnabled": "false",
       "wobblywindowsEnabled": "false",
-      "krohnkiteEnabled": "true",
       "kde-hypr-bridgeEnabled": "true",
       "kde-hypr-launchers-v2Enabled": "true",
       "kde-hypr-launchersEnabled": "false",
-      "kwin_hypr_scroll_desktopEnabled": "true",
-      "graphite-window-controlsEnabled": "true"
-    },
-    "Script-krohnkite": {
-      "adjustLayout": "true",
-      "adjustLayoutLive": "true",
-      "floatSkipPagerWindows": "true",
-      "floatUtility": "true",
-      "floatingClass": "gnome-calculator,org.gnome.Calculator,kcalc,org.kde.kcalc",
-      "keepTilingOnDrag": "true",
-      "layoutPerActivity": "true",
-      "layoutPerDesktop": "true",
-      "noTileBorder": "false",
-      "notificationDuration": "0",
-      "screenDefaultLayout": ":tile",
-      "screenGapBetween": "6",
-      "screenGapBottom": "6",
-      "screenGapLeft": "6",
-      "screenGapRight": "6",
-      "screenGapTop": "6",
-      "soleWindowNoBorders": "false",
-      "tileLayoutOrder": "1"
+      "kwin_hypr_scroll_desktopEnabled": "true"
     }
   },
   "breezerc": {

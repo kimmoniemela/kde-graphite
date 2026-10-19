@@ -100,7 +100,7 @@ def require(api, options, full=False, with_wheel=False, panel=False):
 
 
 def report_optional(options):
-    commands, warnings = applications.launchers(options, Path('runtime'))
+    commands, warnings = applications.launchers(options)
     for warning in warnings:
         print('Optional: ' + warning)
     return commands

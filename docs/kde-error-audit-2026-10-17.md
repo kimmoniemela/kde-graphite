@@ -28,8 +28,8 @@ intended mechanism. See [portal configuration](https://flatpak.github.io/xdg-des
 | --- | --- | --- |
 | `swaync.service` repeatedly fails; `Could not acquire notification name` | Plasma already owns `org.freedesktop.Notifications`. SwayNC tried six times at 15:31:34–36 and hit its restart limit. The unit is disabled, but its installed D-Bus activation file still advertises that same notification name and starts the service. The triggering caller was not identified. | **Confirmed overlap between notification providers.** It is the only failed user unit at inspection. Session-specific activation needs correction; globally removing/masking it could affect another desktop. |
 | Duplicate D-Bus names for Notifications | SwayNC and Plasma both provide the standard notification interface. The broker ignores one candidate. | Related to the notification overlap; not evidence of a second compositor. |
-| Duplicate `org.freedesktop.FileManager1` | The installed generic service starts Nautilus; Dolphin advertises the same interface from another service file. | Package/provider overlap. It can affect which file manager handles a request, but does not control tiling or workspace geometry. |
-| Plasma crashes during logout at 15:31:16 | The journal explicitly says its stop operation timed out and systemd sent SIGABRT. The main thread waits inside `WaylandClipboard::~WaylandClipboard()`; the clipboard thread waits on a recursive mutex. | **Clipboard shutdown deadlock pattern.** Consistent with KDE bug 524538. It is a real logout failure, separate from the tiler. |
+| Duplicate `org.freedesktop.FileManager1` | The installed generic service starts Nautilus; Dolphin advertises the same interface from another service file. | Package/provider overlap. It can affect which file manager handles a request, but does not control workspace geometry. |
+| Plasma crashes during logout at 15:31:16 | The journal explicitly says its stop operation timed out and systemd sent SIGABRT. The main thread waits inside `WaylandClipboard::~WaylandClipboard()`; the clipboard thread waits on a recursive mutex. | **Clipboard shutdown deadlock pattern.** Consistent with KDE bug 524538. It is a real logout failure, separate from custom scripts. |
 | KWin SIGSEGV at 14:37:59 | Stack enters Qt QML's JavaScript garbage collector, `collectFromJSStack`, while evaluating a module/class. | **Real earlier compositor crash.** Script loading/reloading was the suspected trigger during customization; the stack does not conclusively name the initiating script. |
 | `QTimer ... deleteLater is not a function` | 132 warnings from the custom workspace bridge, last seen at 15:16:55. KWin's exposed script timer does not offer that method. | Our script error, corrected with reusable timers. No recurrence in the new session at inspection. |
 | Read-only `activeScreen`, duplicate launcher property, versioned QML file-name mismatch | Earlier setup/diagnostic attempts used an unsupported property, a faulty obsolete launcher, or failed to load a newly generated component. | Historical custom setup errors. The duplicate launcher is removed and canonical QML entry handling corrected. These messages have not recurred after the fresh login. |
@@ -76,7 +76,7 @@ That report does not establish that this machine has its separate portal-crash b
 The fresh session passes the repository's read-only check: the selected scripts,
 five desktops, 15 application shortcuts and 20 workspace shortcuts are present.
 The earlier custom-script warnings have not recurred since login. This verifies
-registrations, not every interactive tiling/unload path.
+registrations, not every interactive workspace or script lifecycle path.
 
 The audit covers the retained messages from this boot and the inspected crash
 records. It does not prove that rare issues cannot recur, identify every graphics

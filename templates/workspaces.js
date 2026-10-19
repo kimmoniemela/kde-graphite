@@ -53,19 +53,8 @@ function sendNumber(n) {
     if (!w || w.specialWindow) return;
     const screen = screenForNumber(n);
     const desktop = workspace.desktops[(n - 1) % 5];
-    function transfer() {
-        if (w.deleted) return;
-        if (w.output !== screen) workspace.sendClientToScreen(w, screen);
-        w.desktops = [desktop];
-    }
-    if (w.output !== screen && !w.skipPager) {
-        // Let the tiler release its pending frame before transferring outputs.
-        w.skipPager = true;
-        later(50, () => {
-            transfer();
-            later(50, () => { if (!w.deleted) w.skipPager = false; });
-        });
-    } else transfer();
+    workspace.sendClientToScreen(w, screen);
+    w.desktops = [desktop];
 }
 function bank(screen) { return 0; } // Five native desktops, independently selected on each output.
 function relative(delta, move) {
@@ -117,12 +106,9 @@ let scratch = [], scratchVisible = false;
 action('ScratchSend', 'Send window to scratchpad', 'Meta+Shift+S', () => {
     const w = workspace.activeWindow;
     if (!w || w.specialWindow) return;
-    if (!scratch.some(x => x.window === w)) scratch.push({window:w, skipPager:w.skipPager, keepAbove:w.keepAbove});
-    w.skipPager = true; // Kröhnkite's configured skipPager floating exception.
+    if (!scratch.some(x => x.window === w)) scratch.push({window:w});
     w.keepAbove = true;
-    if (w.noBorder) {
-        callDBus('org.kde.kglobalaccel', '/component/kwin', 'org.kde.kglobalaccel.Component', 'invokeShortcut', 'KrohnkiteToggleFloat', () => { if (!w.deleted) w.minimized = true; });
-    } else w.minimized = true;
+    w.minimized = true;
     scratchVisible = false;
 });
 action('ScratchToggle', 'Toggle scratchpad', 'Meta+S', () => {

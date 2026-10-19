@@ -23,7 +23,7 @@ The binary goes under `$XDG_DATA_HOME/kde-graphite/wheel/qt6/plugins/` (default
 `$XDG_CONFIG_HOME/plasma-workspace/env/graphite-wheel.sh` adds just that plugin
 root to the KDE session's `QT_PLUGIN_PATH`, preserving any existing value.
 The command backs up both files and `kwinrc`, then enables the effect for the
-next login. Existing Kröhnkite settings and files remain unchanged.
+next login. Independent KWin scripts remain unchanged.
 
 Log out and back in, then run `python3 install.py check`. No compositor restart
 is attempted in the active session. Rebuild after KWin upgrades. The plugin's
@@ -45,12 +45,6 @@ This replaces widgets on existing top bars and creates missing bars. Other
 panels remain. `--no-panel` remains accepted as a compatibility alias for the
 default behavior. Existing custom bars continue working without this option.
 
-## Existing tiling
-
-Normal installation neither installs nor configures Kröhnkite. Its saved state
-and bindings remain. To deliberately install/configure the repository's bundled
-copy, use `install --with-tiling`; see [tiling](tiling.md).
-
 ## Native Global Theme package
 
 ```sh
@@ -64,17 +58,28 @@ kpackagetool6 --type Plasma/LookAndFeel --install theme/org.kde.graphite.desktop
 ```
 
 Use `--upgrade` for an existing package. The theme embeds its palette and two
-wallpapers and references Breeze components. It installs no tiler, shortcuts,
+wallpapers and references Breeze components. It installs no shortcuts,
 custom pager or native effect. Leave **Desktop layout** unchecked to retain
 panels. Selecting it builds a top bar per display, with the custom pager when
 available and KDE's standard pager otherwise.
 
 `python3 install.py theme` additionally backs up touched files and applies
-lock-screen, decoration and visual effect preferences. It leaves tiler
-preferences and scripts untouched. Wallpaper and preview rendering tools under
+lock-screen, decoration and visual effect preferences. It leaves KWin scripts
+and their preferences untouched. Wallpaper and preview rendering tools under
 `tools/` are optional development tools; installation uses bundled PNG assets.
 
-## Verification
+## Verification and recovery
+
+`doctor theme` and `doctor install` perform read-only preflight checks. `check`
+verifies the selected theme, managed scripts and shortcuts after login; it
+also checks the wheel effect when enabled. `check --without-wheel` skips that
+effect check. `install --with-wheel` enables an already discoverable wheel
+plugin; `--without-wheel` preserves its installed state.
+
+Every mutating desktop operation saves touched files. `restore --dry-run`
+previews recovery; `restore` restores the latest backup, or accepts an explicit
+backup directory. Repeated restore follows previous backups. `--dry-run` is
+also available for theme, install, wheel and build-theme.
 
 ```sh
 python3 -m unittest discover -s tests

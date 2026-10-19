@@ -1,7 +1,7 @@
 # Graphite setup history
 
-Updated 2026-10-17. This records the KDE changes made during this setup and the
-final choices. Superseded choices are identified below.
+Originally recorded 2026-10-17; revised 2026-10-19 to describe retained features.
+Graphite is a minimal KDE Plasma theme and keyboard-driven desktop workflow.
 
 ## Scope
 
@@ -33,15 +33,7 @@ The first quiet bar was on the external display. A matching bar was later
 added to the laptop. The installer now creates a top bar on each connected
 monitor and reuses existing top bars on subsequent runs.
 
-## Tiling
-
-Kröhnkite 0.9.9.2 was installed as a KDE-only tiler with six-pixel gaps.
-Its source is pinned in `vendor/krohnkite/`; local changes support KWin 6.7's
-independent per-monitor desktops and the requested decoration behavior.
-
-The setup includes directional focus and tile movement, floating windows,
-layout rotation, monitor moves and a scratchpad. The scratchpad uses minimized
-floating windows; its membership lasts for the KDE session.
+## Workspace wheel
 
 The wheel shortcut handler was built as a separate native KWin effect,
 `kwin_hypr_scroll_desktop`. Its source is in `wheel/`. The original scroll
@@ -72,10 +64,6 @@ There was an intermediate mapping where Super+Shift+1–5 moved within the
 current monitor. It was replaced with the table above so bar labels, switching
 and window moves have the same destinations.
 
-Moving a tiled window across monitors briefly suspends its tiling assignment,
-then restores its previous state. This prevents the tiler from pulling it back
-during KWin's output transfer.
-
 ## Shortcuts and application launching
 
 Bindings were adapted from the existing Hyprland setup into KDE. The main
@@ -88,7 +76,6 @@ requested bindings are:
 | Super+Q | Close active window |
 | Super+Shift+number | Move window to the numbered workspace and monitor |
 | Super+Wheel Up / Down | Next / previous workspace on the current monitor |
-| Super+Alt+Space | Toggle floating |
 
 Application shortcuts use real KWin QML shortcut handlers and a detached
 launcher helper. The launcher uses distinct execution requests so repeated
@@ -98,26 +85,11 @@ bindings without working handlers was replaced.
 The full mapping is in [shortcuts.md](shortcuts.md). Application commands can
 be changed in `settings.local.json` without editing Hyprland.
 
-## Window controls: final preference
+## Window decorations
 
-The first appearance pass hid tiled titlebars and left only a close button on
-decorated windows. This was later changed to the standard minimize,
-maximize/restore and close buttons.
-
-The final preference is **controls on all normal windows, including tiled
-windows**. It supersedes the earlier preference for borderless tiles.
-
-- Titlebar button order is `IAX`: minimize, maximize/restore, close.
-- Maximized windows retain their titlebars.
-- Kröhnkite's `noTileBorder` and `soleWindowNoBorders` settings are disabled.
-- A KDE window-control script watches newly opened windows and restores their
-  controls. The behavior applies to new Kitty and Konsole windows as well as
-  existing windows.
-- The tiler restores normal controls when it is unloaded.
-- True fullscreen windows retain normal fullscreen behavior.
-
-Kitty's shared configuration and GNOME's decoration settings were not changed.
-The fix belongs to KDE, so it does not change terminal styling in another DE.
+Breeze uses the standard minimize, maximize/restore and close buttons (`IAX`).
+Maximized windows retain their titlebars; fullscreen behavior remains native.
+Terminal profiles and other desktops' decoration settings are unchanged.
 
 ## Lock screen
 
@@ -142,14 +114,9 @@ optional desktop layout creates top bars and uses Graphite's workspace widget
 when the full setup is installed; otherwise it uses KDE's native pager.
 
 The Global Theme and complete desktop setup live in the same repository.
-The complete installer supplies workspace routing, launch bindings, tiling and
-the wheel effect that a Global Theme package alone does not install.
-
-## Visible tiling control
-
-A **TILE ON / TILE OFF** button was added to both bars, then removed at the
-user's request. The later Python runtime toggle was also removed; tiling is
-controlled using Kröhnkite's checkbox in KDE's KWin Scripts settings.
+The workflow installer supplies workspace routing and launch bindings. The
+separate wheel command builds the native effect; a Global Theme package alone
+does not install workflow scripts or native effects.
 
 ## Files and installation
 
@@ -160,10 +127,6 @@ marks occupied workspaces in sage, keeps the current workspace filled, and dims
 empty numbers. It reads KDE's task model for each monitor and counts minimized
 windows; it does not change workspace shortcuts or window layout.
 
-Window-management fixes added explicit Kröhnkite shutdown cleanup and guards
-against callbacks changing windows after shutdown. A separate runtime-suspension
-mode and polling were introduced temporarily and later removed in favor of
-KDE's standard KWin Scripts setting.
 The workspace script reuses supported timers instead of calling `deleteLater`,
 which KWin's script timer does not expose. Shifted number shortcuts now follow
 the active XKB layout, including Finnish and US. The obsolete launcher v1 was
@@ -177,10 +140,7 @@ Installation and restore defer script changes until the next login.
 This follows the 14:37:59 KWin crash on 17 October 2026: Qt QML's JavaScript
 garbage collector failed in `collectFromJSStack` through
 `DeclarativeScript::createComponent`. Script reloads were the suspected trigger.
-A runtime toggle was added as a workaround, then removed at the user's request.
-The standard KWin Scripts checkbox is the sole tiling control; the shutdown
-fixes remain. The workspace widget also switched from
-the native pager's private import to public TaskManager desktop information.
+The workspace widget also switched from the native pager's private import to public TaskManager desktop information.
 
 | Location | Purpose |
 | --- | --- |
@@ -188,7 +148,7 @@ the native pager's private import to public TaskManager desktop information.
 | `~/.config/` | Selected KDE settings |
 | `~/.local/share/plasma/look-and-feel/org.kde.graphite.desktop/` | Installed Global Theme |
 | `~/.local/share/plasma/plasmoids/` | Graphite workspace widget |
-| `~/.local/share/kwin/scripts/` | Tiler, workspace, launcher and window-control scripts |
+| `~/.local/share/kwin/scripts/` | Workspace and launcher scripts |
 | `~/.local/share/kde-graphite/runtime/` | Generated runtime helpers |
 | `~/.local/state/kde-graphite/backups/` | Local installation backups |
 | `~/.local/share/kde-terminal-rice/` | Earlier setup helpers and diagnostics on this machine |
@@ -214,8 +174,8 @@ Do not copy the whole `~/.config` directory to install another machine.
 
 Validation covered package import through KDE's package tools, portable file
 rendering, configuration merging, backup restoration, repeated application
-launches, both monitor workspace banks, cross-monitor moves and window controls.
-New Kitty and Konsole windows were checked after the final controls change.
+launches, both monitor workspace banks and cross-monitor moves. These are historical
+checks, not graphical verification of subsequent changes.
 
 The desktop was tested on Fedora 44 with Plasma 6.7.5 on Wayland. Arch package
 instructions are documented; a clean-machine Arch installation still needs

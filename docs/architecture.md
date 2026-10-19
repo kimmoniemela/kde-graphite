@@ -1,8 +1,8 @@
 # Architecture and fresh-machine contract
 
-Graphite is a small user-level KDE configuration installer, not a distribution
-or a package manager. The same source and commands apply on supported KDE
-distributions. Historical Arch and Fedora audits document observations; they
+Graphite is a minimal KDE Plasma theme and keyboard-driven desktop workflow.
+It uses a small user-level configuration installer. The same source and commands
+apply on supported KDE distributions. Historical Arch and Fedora audits document observations; they
 do not define separate installation variants.
 
 ## Boundaries
@@ -13,7 +13,6 @@ do not define separate installation variants.
 | Workflow | Explicit workspace and app shortcuts | Plasma 6.7+ Wayland, PySide6/QtDBus and existing KDE runtime tools |
 | Applications | Resolve desktop defaults at launch; select installed calculator/monitor | Missing optional apps skip their bindings; no package install |
 | Panels | Replace/create top bars | Explicit `--panel`; validate widgets and task manager QML first |
-| Tiling | Configure the vendored tiler | Explicit `--with-tiling`; preserve existing tiling otherwise |
 | Wheel | Native KWin axis-shortcut plugin | Explicit build; installed development files; local KWin ABI |
 | SDDM | System login theme | Separate root command, Qt 6 greeter/QML preflight and backup |
 
@@ -57,6 +56,14 @@ localized entries and nested groups. Locally locked KConfig entries fail rather
 than silently pretending they were changed. Individual payload writes use
 atomic replacement.
 
+Only the workspace and launcher KWin scripts are managed. Third-party script
+files, settings and enable states are preserved. Shortcut conflicts with
+unmanaged KWin actions stop installation for resolution in System Settings;
+Graphite does not reassign another script's bindings. Runtime payloads explicitly
+include the maintained launch and keyboard-layout helpers. Workflow upgrades
+back up and remove the two retired Graphite utility helpers and unregister their
+actions; they do not remove or migrate any third-party scripts.
+
 Desktop operations restore saved files automatically on failure, retaining the
 failure backup for inspection and keeping the previous successful backup as
 the restore target. Restore validates all saved source files before replacing
@@ -81,7 +88,7 @@ autoload configuration still uses kded5rc in
 The automated suite covers isolated fresh XDG homes, repeat installs, missing
 dependencies and optional apps, failure after writes, restore history and
 corrupt backups, configuration preservation, keyboard layouts, JavaScript
-workspace/tiler behavior, and native theme import. Node and KPackage tools
+workspace behavior, and native theme import. Node and KPackage tools
 enable their respective tests; the tests do not install them. GitHub checks
 run portable Python and JavaScript tests and build the theme archive; tests
 requiring a KDE runtime are skipped there.
@@ -95,10 +102,10 @@ run this acceptance pass in a clean VM or spare account:
 
 1. Run doctor and install without a local settings file, then log in again.
 2. Check application defaults, workspace switch/move, Finnish/US keyboard
-   layout changes, screen focus, scratchpad and window controls.
+   layout changes, screen focus, scratchpad and native window controls.
 3. Repeat install, then restore twice; verify the original desktop after login.
 4. Test one screen, two screens, unplug/redock and changed display priority.
-5. Exercise optional panels and tiling separately; test wheel with a physical
+5. Exercise optional panels; test wheel with a physical
    mouse after login. Preview SDDM and test authentication in a recoverable VM.
 
 Suggested next improvement: run that graphical acceptance pass in a disposable

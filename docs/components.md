@@ -1,7 +1,8 @@
 # Components
 
-The normal installer applies the theme and shortcuts. It neither installs nor
-configures Kröhnkite and retains existing top bars.
+Graphite is a minimal KDE Plasma theme and keyboard-driven desktop workflow.
+The normal installer applies the theme and shortcuts while retaining existing
+top bars and independently installed KWin scripts.
 
 | Component | Purpose | Installation |
 | --- | --- | --- |
@@ -9,11 +10,9 @@ configures Kröhnkite and retains existing top bars.
 | `kde-hypr-bridge` | Monitor-aware workspace switching, explicit window moves and scratchpad shortcuts | `install` |
 | `kde-hypr-launchers-v2` | Application shortcut handlers | `install` |
 | `workspace-keys.py` | Adapt shifted number-row shortcuts to the active Finnish/US XKB layout | `install` |
-| `launch-app.py`, `pick-color.py`, `wallpaper-settings.py` | Run configured application, color-picker and wallpaper shortcuts | `install` |
+| `launch-app.py` | Run configured application shortcuts | `install` |
 | `applications.py` | Resolve KDE defaults and available optional apps | Copied with workflow runtime; no separate dependency |
 | `org.kde.graphite.workspaces` | Workspace labels and occupied-state indicators on each bar | Explicit `install --panel`; existing widgets remain otherwise |
-| `krohnkite` | Automatic tiling | Existing setup preserved; installing/configuring the bundled copy requires `--with-tiling` |
-| `graphite-window-controls` | Keep normal titlebar controls when using the bundled tiler | Installed only with `--with-tiling`; existing helper preserved |
 | `kwin_hypr_scroll_desktop` | Super+wheel up/down workspace shortcuts | Explicit `wheel` build/install command |
 
 Names containing `hypr` are historical identifiers. These scripts run inside
@@ -26,8 +25,8 @@ new layout's symbols. It is the only persistent Python helper installed by the
 shortcut profile. The other helpers run only when a shortcut is used.
 
 Workspace and launcher scripts act on explicit shortcuts. They do not enforce
-window geometry or implement automatic tiling. Kröhnkite's existing enable/
-disable behavior remains controlled by KWin Scripts settings.
+window geometry. Independent third-party scripts remain under the user's
+control in KWin Scripts settings.
 
 Script updates activate at a new KDE login. The installer avoids live KWin
 script unload/reload cycles because these previously triggered a compositor
