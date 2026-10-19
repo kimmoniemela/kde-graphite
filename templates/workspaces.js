@@ -1,7 +1,9 @@
 // KDE workspace and scratchpad bindings; output names are optional overrides.
-function action(name, text, keys, fn) {
-    registerShortcut('KdeHypr' + name, 'Graphite: ' + text, keys, fn);
+const shortcuts = @@WORKSPACE_SHORTCUTS@@;
+function action(name, text, fn) {
+    registerShortcut('KdeHypr' + name, 'Graphite: ' + text, shortcuts[name] || '', fn);
 }
+// Keep active, unparented QTimers reachable until their callbacks complete.
 const pendingTimers = new Set();
 const idleTimers = [];
 function later(delay, callback) {
@@ -56,21 +58,19 @@ function sendNumber(n) {
     workspace.sendClientToScreen(w, screen);
     w.desktops = [desktop];
 }
-function bank(screen) { return 0; } // Five native desktops, independently selected on each output.
 function relative(delta, move) {
     const screen = workspace.activeScreen;
-    const first = bank(screen);
     const index = workspace.desktops.indexOf(current(screen));
-    const target = Math.max(first, Math.min(first + 4, index + delta));
+    const target = Math.max(0, Math.min(4, index + delta));
     if (move) {
         const w = workspace.activeWindow;
         if (w && !w.specialWindow) w.desktops = [workspace.desktops[target]];
     } else workspace.setCurrentDesktopForScreen(workspace.desktops[target], screen);
 }
 function nextEmpty() {
-    const screen = workspace.activeScreen, first = bank(screen);
+    const screen = workspace.activeScreen;
     const windows = workspace.windowList();
-    for (let i = first; i < first + 5; i++) {
+    for (let i = 0; i < 5; i++) {
         const d = workspace.desktops[i];
         if (!windows.some(w => !w.specialWindow && w.output === screen && !w.minimized && (w.desktops.length === 0 || w.desktops.indexOf(d) >= 0))) {
             workspace.setCurrentDesktopForScreen(d, screen); return;
@@ -78,50 +78,46 @@ function nextEmpty() {
     }
 }
 for (let n = 1; n <= 10; n++) {
-    const number = n, key = n % 10;
-    action('Desktop' + n, 'Workspace ' + n, 'Meta+' + key, () => switchNumber(number));
-    action('SendDesktop' + n, 'Send window to workspace ' + n, 'Meta+Shift+' + key, () => sendNumber(number));
-}
-for (let n = 1; n <= 5; n++) {
     const number = n;
-    action('LocalDesktop' + n, 'Workspace ' + n + ' on this monitor', 'Meta+Ctrl+' + n,
-        () => workspace.setCurrentDesktopForScreen(workspace.desktops[bank(workspace.activeScreen) + number - 1], workspace.activeScreen));
+    action('Desktop' + n, 'Workspace ' + n, () => switchNumber(number));
+    action('SendDesktop' + n, 'Send window to workspace ' + n, () => sendNumber(number));
 }
-action('WorkspaceNext', 'Next workspace', 'Meta+Ctrl+Right', () => relative(1, false));
-action('WorkspacePrev', 'Previous workspace', 'Meta+Ctrl+Left', () => relative(-1, false));
-action('SendNext', 'Send window to next workspace', 'Meta+Ctrl+Shift+Right', () => relative(1, true));
-action('SendPrev', 'Send window to previous workspace', 'Meta+Ctrl+Shift+Left', () => relative(-1, true));
-action('Empty', 'Next empty workspace on this monitor', 'Meta+Ctrl+Down', nextEmpty);
-action('MonitorPrev', 'Move window to previous monitor', '', () => {
-    const w = workspace.activeWindow;
-    workspace.slotWindowToPrevScreen();
-    if (w) w.desktops = [current(w.output)];
-});
-action('MonitorNext', 'Move window to next monitor', '', () => {
-    const w = workspace.activeWindow;
-    workspace.slotWindowToNextScreen();
-    if (w) w.desktops = [current(w.output)];
-});
+action('WorkspaceNext', 'Next workspace', () => relative(1, false));
+action('WorkspacePrev', 'Previous workspace', () => relative(-1, false));
+action('SendNext', 'Send window to next workspace', () => relative(1, true));
+action('SendPrev', 'Send window to previous workspace', () => relative(-1, true));
+action('Empty', 'Next empty workspace on this monitor', nextEmpty);
 let scratch = [], scratchVisible = false;
-action('ScratchSend', 'Send window to scratchpad', 'Meta+Shift+S', () => {
+function hideScratchpad() {
+    for (const item of scratch) {
+        const w = item.window;
+        if (w.deleted) continue;
+        w.minimized = true;
+        // Undo only the keep-above change made while showing this scratchpad.
+        if (item.raised && w.keepAbove) w.keepAbove = item.keepAbove;
+        item.raised = false;
+    }
+    scratchVisible = false;
+}
+action('ScratchSend', 'Send window to scratchpad', () => {
     const w = workspace.activeWindow;
     if (!w || w.specialWindow) return;
     if (!scratch.some(x => x.window === w)) scratch.push({window:w});
-    w.keepAbove = true;
-    w.minimized = true;
-    scratchVisible = false;
+    hideScratchpad();
 });
-action('ScratchToggle', 'Toggle scratchpad', 'Meta+S', () => {
+action('ScratchToggle', 'Toggle scratchpad', () => {
     scratch = scratch.filter(x => !x.window.deleted);
-    scratchVisible = !scratchVisible;
+    if (scratchVisible) { hideScratchpad(); return; }
+    scratchVisible = true;
     for (const item of scratch) {
         const w = item.window;
-        if (scratchVisible) {
-            workspace.sendClientToScreen(w, workspace.activeScreen);
-            w.desktops = [current(workspace.activeScreen)];
-            w.minimized = false;
-            workspace.activeWindow = w;
-        } else w.minimized = true;
+        workspace.sendClientToScreen(w, workspace.activeScreen);
+        w.desktops = [current(workspace.activeScreen)];
+        item.keepAbove = w.keepAbove;
+        if (!w.keepAbove) w.keepAbove = true;
+        item.raised = w.keepAbove !== item.keepAbove;
+        w.minimized = false;
+        workspace.activeWindow = w;
     }
 });
 workspace.windowRemoved.connect(w => { scratch = scratch.filter(x => x.window !== w); });

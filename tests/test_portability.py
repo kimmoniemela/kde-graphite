@@ -39,9 +39,11 @@ class PortabilityTests(unittest.TestCase):
             self.assertEqual(install.read_config(config / 'kwinrc')['Script-krohnkite']['custom'], 'keep')
             self.assertEqual(install.read_config(config / 'kwinrc')['Plugins']['krohnkiteEnabled'], 'false')
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
+            install.merge_config(config / 'kwinrc', {'Windows': {'FocusPolicy': 'ClickToFocus'}})
             install.restore_files(backup)
             self.assertEqual(plugin.read_bytes(), b'old plugin')
-            self.assertEqual((config / 'kwinrc').read_text(), original)
+            self.assertEqual(install.read_config(config / 'kwinrc')['Windows']['FocusPolicy'], 'ClickToFocus')
+            self.assertEqual(install.read_config(config / 'kwinrc')['Plugins']['krohnkiteEnabled'], 'false')
             self.assertFalse((config / 'plasma-workspace/env/graphite-wheel.sh').exists())
 
     def test_install_preserves_third_party_scripts_effects_and_bars(self):
@@ -70,9 +72,8 @@ class PortabilityTests(unittest.TestCase):
                 for name in install.RETIRED_UTILITIES:
                     handle.write('KdeHyprLaunch' + name + '=Meta+P,none,Old utility\n')
             with patch.object(install, 'preflight'), patch.object(install, 'resolve_outputs', side_effect=lambda o: o), \
-                 patch.object(install, 'run', return_value='Fira Code'), patch.object(install, 'dbus'), \
+                 patch.object(install, 'run', return_value='Fira Code'), patch.object(install, 'dbus', return_value="('[]',)") as calls, \
                  patch.object(install, 'clear_conflicts'), patch.object(install, 'native_shortcuts'), \
-                 patch.object(install, 'restart_shell', side_effect=AssertionError('Do not restart Plasma')), \
                  contextlib.redirect_stdout(io.StringIO()):
                 install.apply(install.settings(), config, data, state)
             kwin = install.read_config(config / 'kwinrc')
@@ -87,8 +88,9 @@ class PortabilityTests(unittest.TestCase):
             self.assertEqual(shortcuts['KrohnkiteFocusLeft'], 'Meta+Left,none,Focus')
             self.assertEqual(shortcuts['Overview'], 'Meta+O,none,Overview')
             self.assertEqual(helper.read_bytes(), b'existing helper')
+            retired = [c.args[-1] for c in calls.call_args_list if c.args[2] == 'org.kde.KGlobalAccel.unregister']
+            self.assertTrue(all('KdeHyprLaunch' + name in retired for name in install.RETIRED_UTILITIES))
             for name, filename in install.RETIRED_UTILITIES.items():
-                self.assertNotIn('KdeHyprLaunch' + name, shortcuts)
                 self.assertFalse((runtime / filename).exists())
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
             entries = json.loads((backup / 'manifest.json').read_text())
@@ -97,23 +99,15 @@ class PortabilityTests(unittest.TestCase):
             for filename in install.RETIRED_UTILITIES.values():
                 self.assertEqual((runtime / filename).read_bytes(), b'old Graphite utility')
 
-    def test_doctor_uses_qt_runtime_without_development_tools(self):
-        api = SimpleNamespace(kwin=Mock(return_value='KWin version: 6.7.5'),
-                              dbus=Mock(side_effect=RuntimeError('stop before widget query')),
-                              run=Mock(return_value='/usr/lib/qt6/qml'))
-        def which(name):
-            return None if name in ['qtpaths6', 'qtpaths-qt6'] else name
-        with patch('doctor.shutil.which', side_effect=which), \
-             patch('doctor.os.geteuid', return_value=1000), \
-             patch('doctor.Path.is_file', return_value=True), \
-             patch('doctor.importlib.util.find_spec', return_value=True), \
-             patch('doctor.qml_import_path', return_value=Path('/runtime/qt6/qml')) as qml_import_path, \
-             patch('doctor.importlib.import_module'), \
+    def test_doctor_has_no_custom_panel_or_qml_runtime_dependency(self):
+        api = SimpleNamespace(kwin=Mock(return_value='KWin version: 6.7.5'), dbus=Mock(), run=Mock())
+        with patch('doctor.shutil.which', return_value='/bin/tool'), \
+             patch('doctor.os.geteuid', return_value=1000), patch('doctor.Path.is_file', return_value=True), \
+             patch('doctor.importlib.util.find_spec', return_value=True), patch('doctor.importlib.import_module'), \
              patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'KDE', 'WAYLAND_DISPLAY': 'wayland-1'}):
-            errors = doctor.problems(api, install.settings(), full=True)
+            self.assertEqual(doctor.problems(api, install.settings(), full=True), [])
         api.run.assert_not_called()
-        qml_import_path.assert_called_once_with()
-        self.assertFalse(any('Missing command: qtpaths' in error for error in errors))
+        self.assertFalse(any('evaluateScript' in call.args[2] for call in api.dbus.call_args_list))
 
     def test_doctor_reports_all_missing_commands_without_modification(self):
         with patch('doctor.shutil.which', return_value=None), patch('doctor.os.geteuid', return_value=1000), \
@@ -173,24 +167,22 @@ class PortabilityTests(unittest.TestCase):
             options = install.settings()
             options.update(primary_output='PRIMARY', secondary_output='SECONDARY', altgr_as_super=True)
             with patch.object(install, 'preflight'), patch.object(install, 'resolve_outputs', return_value=options), \
-                 patch.object(install, 'run', return_value='Fira Code'), patch.object(install, 'dbus'), \
+                 patch.object(install, 'run', return_value='Fira Code'), patch.object(install, 'dbus', return_value="('[]',)"), \
                  patch.object(install, 'kwin', side_effect=AssertionError('Do not reload live KWin scripts')), \
-                 patch.object(install, 'clear_conflicts'), patch.object(install, 'native_shortcuts'), \
+                 patch.object(install, 'clear_conflicts'), patch.object(install, 'native_shortcuts') as register, \
                  contextlib.redirect_stdout(io.StringIO()):
-                install.apply(options, config, data, state, panel=False)
+                install.apply(options, config, data, state)
             self.assertEqual(protected, install.protected_hashes(config))
             self.assertTrue((config / 'xkb/symbols/graphite').is_file())
             self.assertEqual(install.read_config(config / 'kxkbrc')['Layout']['Options'], 'graphite:altgr_super')
             self.assertEqual(install.read_config(config / 'kwinrc')['Windows']['Unrelated'], 'keep')
             self.assertEqual(install.read_config(config / 'kwinrc')['org.kde.kdecoration2']['library'], 'org.kde.breeze')
             self.assertNotIn(install.WHEEL + 'Enabled', install.read_config(config / 'kwinrc')['Plugins'])
-            shortcuts = install.read_config(config / 'kglobalshortcutsrc')['kwin']
-            self.assertTrue(shortcuts['KdeHyprLaunchTerminal'].startswith('Meta+Return,'))
-            self.assertTrue(shortcuts['KdeHyprSendDesktop10'].startswith('Meta+Shift+0,'))
-            self.assertFalse((data / 'plasma/plasmoids/org.kde.graphite.workspaces/metadata.json').is_file())
+            shortcuts = register.call_args.args[0]
+            self.assertEqual(shortcuts[install.APPLICATION_COMPONENT, 'Terminal'], 'Meta+Return')
+            self.assertEqual(shortcuts['kwin', 'KdeHyprSendDesktop10'], 'Meta+Shift+0')
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
-            with patch.object(install, 'restart_shell'), \
-                 patch.object(install, 'kwin', side_effect=AssertionError('Restore must not unload live scripts')), \
+            with patch.object(install, 'kwin', side_effect=AssertionError('Restore must not unload live scripts')), \
                  contextlib.redirect_stdout(io.StringIO()):
                 install.restore(backup)
             self.assertEqual((config / 'kwinrc').read_bytes(), original)

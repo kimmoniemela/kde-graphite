@@ -2,13 +2,10 @@
 """Run a configured shortcut command without tying its lifetime to KWin."""
 import json
 import pathlib
-import subprocess
+import os
 import sys
 
 from applications import DEFAULT, default_command
-
-def terminal_command():
-    return default_command('Terminal')
 
 
 def main():
@@ -16,16 +13,10 @@ def main():
     name = sys.argv[1]
     command = commands[name]
     if command == DEFAULT:
-        command = default_command('Calculator' if name == 'CalculatorKey' else name)
+        command = default_command(name)
     if not command:
         raise RuntimeError('No application available for ' + name)
-    subprocess.Popen(
-        command,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    os.execvp(command[0], command)
 
 
 if __name__ == '__main__':

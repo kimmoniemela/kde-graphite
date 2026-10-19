@@ -22,18 +22,12 @@ import doctor
 import applications
 
 ROOT = Path(__file__).resolve().parent
-SCRIPTS = ('kde-hypr-bridge', 'kde-hypr-launchers-v2')
+SCRIPTS = ('kde-hypr-bridge',)
+APPLICATION_COMPONENT = 'org.kde.graphite.applications.desktop'
 RUNTIME_SCRIPTS = ('launch-app.py', 'workspace-keys.py')
 # Upgrade cleanup applies only to these retired Graphite utilities.
 RETIRED_UTILITIES = {'Wallpaper': 'wallpaper-settings.py', 'ColorPicker': 'pick-color.py'}
 WHEEL = 'kwin_hypr_scroll_desktop'
-KEYS = {
-    'Terminal': 'Meta+Return', 'Files': 'Meta+E', 'Editor': 'Meta+T',
-    'Calculator': 'Meta+C', 'CalculatorKey': 'Calculator', 'Browser': 'Meta+W',
-    'Launcher': 'Meta+Space', 'Settings': 'Meta+Z', 'Emoji': 'Meta+.',
-    'ProcessMonitor': 'Ctrl+Shift+Esc', 'SessionMenu': 'Meta+Alt+C',
-    'ScreenshotRegion': 'Print', 'ScreenshotFull': 'Meta+Print',
-}
 
 
 def run(*args, timeout=20):
@@ -59,6 +53,14 @@ def dbus(dest, path, method, *args):
 
 def kwin(path, method, *args):
     return dbus('org.kde.KWin', path, method, *args)
+
+
+def plasma_script(code):
+    result = ast.literal_eval(dbus('org.kde.plasmashell', '/PlasmaShell',
+                              'org.kde.PlasmaShell.evaluateScript', code))[0]
+    if re.search(r'(?:^|\n)(?:Error|TypeError|ReferenceError|SyntaxError):', result):
+        raise RuntimeError('Plasma scripting failed: ' + result)
+    return result
 
 
 def read_config(path):
@@ -107,7 +109,77 @@ def merge_config(path, groups):
     atomic_write(path, ''.join(lines).encode())
 
 
+def restored_config(current, original, groups):
+    """Restore selected raw KConfig entries while retaining unrelated user text."""
+    def blocks(text):
+        result = []
+        for line in text.splitlines(keepends=True):
+            stripped = line.strip()
+            if stripped.startswith('[') and stripped.endswith(']'):
+                result.append([stripped[1:-1], line, []])
+            else:
+                if not result:
+                    result.append([None, '', []])
+                result[-1][2].append(line)
+        return result
+    def key(line):
+        if line.lstrip().startswith(('#', ';')) or '=' not in line:
+            return None
+        return re.sub(r'\[\$[edi]+\]', '', line.split('=', 1)[0].strip())
+    old_blocks = blocks(original)
+    old_groups = {group for group, _, _ in old_blocks}
+    saved = {(group, key(line)): line for group, _, lines in old_blocks for line in lines
+             if key(line) in groups.get(group, [])}
+    restored, seen = [], set()
+    for group, header, lines in blocks(current):
+        selected = set(groups.get(group, []))
+        if group and group.endswith('][$i') and group[:-4] in groups:
+            raise RuntimeError('Cannot restore a locked KConfig group: ' + group)
+        body = []
+        for line in lines:
+            name = key(line)
+            if name not in selected:
+                body.append(line)
+                continue
+            if '[$i]' in line.split('=', 1)[0]:
+                raise RuntimeError('Cannot restore a locked KConfig entry: ' + name)
+            identity = (group, name)
+            if identity not in seen and identity in saved:
+                body.append(saved[identity].rstrip('\n') + '\n')
+            seen.add(identity)
+        for name in groups.get(group, []):
+            identity = (group, name)
+            if identity in saved and identity not in seen:
+                if body and not body[-1].endswith('\n'):
+                    body[-1] += '\n'
+                body.append(saved[identity].rstrip('\n') + '\n')
+                seen.add(identity)
+        if group not in old_groups and not any(line.strip() for line in body):
+            continue
+        restored += [header, *body]
+    for group, header, lines in old_blocks:
+        missing = [line for line in lines if (group, key(line)) in saved and (group, key(line)) not in seen]
+        if missing:
+            restored += ['\n', header, *missing]
+    content = ''.join(restored)
+    # Remove only formatting left behind by newly created, now empty groups.
+    if [line for line in content.splitlines() if line.strip()] == [line for line in original.splitlines() if line.strip()]:
+        return original
+    return content
+
+
+def shortcut_groups(actions):
+    groups = {}
+    for component, name in actions:
+        groups.setdefault(component, []).append(name)
+        if component.endswith('.desktop'):
+            groups.setdefault('services][' + component, []).append(name)
+    return groups
+
+
 def atomic_write(path, content):
+    if path.is_file() and path.read_bytes() == content:
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as temporary:
         temporary_path = Path(temporary.name)
@@ -121,7 +193,9 @@ def atomic_write(path, content):
 
 
 def atomic_copy(source, target):
-    """Replace a file without truncating a library mapped by a running process."""
+    """Replace a changed file without truncating a mapped library."""
+    if target.is_file() and source.read_bytes() == target.read_bytes() and source.stat().st_mode == target.stat().st_mode:
+        return
     with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as temporary:
         temporary_path = Path(temporary.name)
     try:
@@ -131,29 +205,37 @@ def atomic_copy(source, target):
         temporary_path.unlink(missing_ok=True)
 
 
-def retire_utilities(config, data):
-    """Remove only Graphite's retired utility files and shortcut registrations."""
-    for filename in RETIRED_UTILITIES.values():
-        (data / 'kde-graphite/runtime' / filename).unlink(missing_ok=True)
-    path = config / 'kglobalshortcutsrc'
-    if not path.exists():
-        return
-    actions = {'KdeHyprLaunch' + name for name in RETIRED_UTILITIES}
-    lines, group = [], None
-    for line in path.read_text().splitlines(keepends=True):
-        stripped = line.strip()
-        if stripped.startswith('[') and stripped.endswith(']'):
-            group = stripped[1:-1]
-        key = line.split('=', 1)[0].strip()
-        name = re.sub(r'\[\$[edi]+\]', '', key)
-        if group in ('kwin', 'kwin][$i') and name in actions:
-            if '[$i]' in group or '[$i]' in key:
-                raise RuntimeError(f'KConfig shortcut is locked: {path}: {key}')
-            ids = json.dumps(['kwin', name, 'KWin', 'Graphite: ' + name])
-            dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, '[]', '4')
+def legacy_actions():
+    names = set(json.loads((ROOT / 'shortcuts.json').read_text())['applications'])
+    names.update(['CalculatorKey', 'Launcher', 'Settings', 'Emoji', 'SessionMenu',
+                  'ScreenshotRegion', 'ScreenshotFull', *RETIRED_UTILITIES])
+    return ({'KdeHyprLaunch' + name for name in names} | {'KdeHyprLocalDesktop' + str(n) for n in range(1, 6)}
+            | {'KdeHyprMonitorPrev', 'KdeHyprMonitorNext'})
+
+
+def retired_files(data):
+    paths = [data / 'kde-graphite/runtime' / name for name in RETIRED_UTILITIES.values()]
+    paths += [data / 'kwin/scripts/kde-hypr-launchers-v2' / name
+              for name in ['metadata.json', 'contents/ui/main.qml']]
+    return [path for path in paths if path.exists()] + theme.retired_layouts(data)
+
+
+def retire_shortcuts(config):
+    saved = read_config(config / 'kglobalshortcutsrc')
+    actions = legacy_actions()
+    changed = False
+    for section in saved.sections():
+        if section not in ('kwin', 'kwin][$i'):
             continue
-        lines.append(line)
-    atomic_write(path, ''.join(lines).encode())
+        for key in saved[section]:
+            name = re.sub(r'\[\$[edi]+\]', '', key)
+            if name not in actions:
+                continue
+            if '[$i]' in section or '[$i]' in key:
+                raise RuntimeError('KConfig shortcut is locked: ' + name)
+            dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.unregister', 'kwin', name)
+            changed = True
+    return changed
 
 
 def settings(path=None):
@@ -162,6 +244,7 @@ def settings(path=None):
         local = json.loads(Path(path).read_text())
         if not isinstance(local, dict):
             raise ValueError('settings must contain a JSON object')
+        local.pop('panel_height', None)  # Ignored preference from the retired panel installer.
         unknown = set(local) - set(result)
         if unknown:
             raise ValueError('Unknown settings: ' + ', '.join(sorted(unknown)))
@@ -179,8 +262,6 @@ def settings(path=None):
             raise ValueError(f'applications.{name}: use ["@default"] or an explicit command array')
     if not isinstance(result['altgr_as_super'], bool):
         raise ValueError('altgr_as_super must be a boolean')
-    if not isinstance(result['panel_height'], int) or not 20 <= result['panel_height'] <= 64:
-        raise ValueError('panel_height must be between 20 and 64')
     if not all(isinstance(result[role], str) for role in ['primary_output', 'secondary_output']):
         raise ValueError('output names must be strings; use an empty string for automatic detection')
     if not isinstance(result['font'], str) or not result['font'] or any(c in result['font'] for c in ',\n\r'):
@@ -207,39 +288,48 @@ def keyboard_configuration(config):
     return files, {'Layout': {'Options': ','.join(values), 'ResetOldOptions': 'true'}}
 
 
-def payload(options, data, panel=False):
-    """Render portable templates for one user's XDG data directory."""
+def desktop_exec(argv):
+    """Quote an argv array for Desktop Entry Exec, including its KConfig layer."""
+    args = ['"' + re.sub(r'([\\`"$])', r'\\\1', value).replace('%', '%%') + '"' for value in argv]
+    return ' '.join(args).replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+
+
+def workspace_script():
+    bindings = {name.removeprefix('KdeHypr'): seq for _, name, seq in workspace_shortcuts()}
+    return (ROOT / 'templates/workspaces.js').read_text().replace('@@WORKSPACE_SHORTCUTS@@', json.dumps(bindings))
+
+
+def payload(options, data, commands=None):
+    """Install a native shortcut service and only the essential workspace helpers."""
     files = theme.payload(options, data)
     runtime = data / 'kde-graphite/runtime'
     for name in RUNTIME_SCRIPTS:
         files[runtime / name] = (ROOT / 'scripts' / name).read_bytes()
     files[runtime / 'applications.py'] = (ROOT / 'applications.py').read_bytes()
-    commands, _ = applications.launchers(options)
+    if commands is None:
+        commands, _ = applications.launchers(options)
     files[runtime / 'launchers.json'] = (json.dumps(commands, indent=2) + '\n').encode()
-    for source in ((ROOT / 'widgets').rglob('*') if panel else []):
-        if source.is_file() and '__pycache__' not in source.parts:
-            files[data / 'plasma/plasmoids' / source.relative_to(ROOT / 'widgets')] = source.read_bytes()
-    scripts = data / 'kwin/scripts'
-    for name, api, main in [('kde-hypr-bridge', 'javascript', 'code/main.js'),
-                            ('kde-hypr-launchers-v2', 'declarativescript', 'ui/main.qml')]:
-        metadata = {'KPackageStructure': 'KWin/Script', 'KPlugin': {'Id': name,
-            'Name': 'Graphite workspaces' if api == 'javascript' else 'Graphite application shortcuts',
-            'Version': '1.0', 'License': 'MIT'}, 'X-Plasma-API': api, 'X-Plasma-MainScript': main}
-        files[scripts / name / 'metadata.json'] = (json.dumps(metadata, indent=2) + '\n').encode()
-    files[scripts / 'kde-hypr-bridge/contents/code/main.js'] = (ROOT / 'templates/workspaces.js').read_bytes()
-    qml = (ROOT / 'templates/launchers.qml').read_text()
-    prefix = shlex.join([sys.executable, str(runtime / 'launch-app.py')])
-    qml = qml.replace('@@WORKSPACE_KEYS_COMMAND@@', json.dumps(shlex.join([sys.executable, str(runtime / 'workspace-keys.py')])))
-    handlers = []
-    for name, sequence in KEYS.items():
-        if name not in commands:
-            continue
-        handlers.append('    ShortcutHandler { name: ' + json.dumps('KdeHyprLaunch' + name)
-            + '; text: ' + json.dumps('Graphite: ' + name) + '; sequence: ' + json.dumps(sequence)
-            + '; onActivated: runner.exec(' + json.dumps(name) + ') }')
-    qml = qml.replace('@@COMMAND_PREFIX@@', json.dumps(prefix)).replace('@@SHORTCUT_HANDLERS@@', '\n'.join(handlers))
-    files[scripts / 'kde-hypr-launchers-v2/contents/ui/main.qml'] = qml.encode()
+    keys = json.loads((ROOT / 'shortcuts.json').read_text())['applications']
+    desktop = ['[Desktop Entry]', 'Type=Application', 'Name=Graphite application shortcuts',
+               'X-KDE-GlobalShortcutType=Service', 'Actions=' + ';'.join(commands) + ';']
+    for name, argv in commands.items():
+        # KIO does not field-expand percent signs in the executable token.
+        use_resolver = argv == applications.DEFAULT or '%' in argv[0]
+        command = [sys.executable, str(runtime / 'launch-app.py'), name] if use_resolver else argv
+        desktop += ['', '[Desktop Action ' + name + ']', 'Name=Graphite: ' + name,
+                    'Exec=' + desktop_exec(command), 'X-KDE-Shortcuts=' + keys[name].replace(';', ','), 'StartupNotify=false']
+    files[data / 'kglobalaccel' / APPLICATION_COMPONENT] = ('\n'.join(desktop) + '\n').encode()
+    scripts_path = data / 'kwin/scripts/kde-hypr-bridge/metadata.json'
+    files[scripts_path] = (json.dumps({
+        'KPackageStructure': 'KWin/Script', 'KPlugin': {'Id': SCRIPTS[0], 'Name': 'Graphite workspaces',
+        'Version': '1.0', 'License': 'MIT'}, 'X-Plasma-API': 'javascript', 'X-Plasma-MainScript': 'code/main.js'}, indent=2) + '\n').encode()
+    files[scripts_path.parent / 'contents/code/main.js'] = workspace_script().encode()
     return files
+
+
+def autostart_file(data):
+    return ('[Desktop Entry]\nType=Application\nName=Graphite workspace keyboard layouts\nOnlyShowIn=KDE;\n'
+            'Exec=' + desktop_exec([sys.executable, str(data / 'kde-graphite/runtime/workspace-keys.py')]) + '\n').encode()
 
 
 class Backup:
@@ -252,7 +342,7 @@ class Backup:
         (self.path / 'previous-backup').write_text(self.previous)
         self.files = []
 
-    def save(self, paths):
+    def save(self, paths, selections=None):
         known = {entry['path'] for entry in self.files}
         for path in paths:
             path = Path(path)
@@ -261,11 +351,30 @@ class Backup:
             if path.is_symlink():
                 raise RuntimeError(f'Refusing to replace symlink: {path}')
             entry = {'path': str(path), 'existed': path.exists(), 'copy': str(len(self.files))}
+            if selections and str(path) in selections:
+                entry['groups'] = selections[str(path)]
             if path.exists():
                 shutil.copy2(path, self.path / entry['copy'])
             self.files.append(entry)
             known.add(str(path))
             self.flush()
+
+    def include_shortcut_owners(self, actions):
+        entry = next(item for item in self.files if Path(item['path']).name == 'kglobalshortcutsrc')
+        for group, names in shortcut_groups(actions).items():
+            entry['groups'].setdefault(group, []).extend(names)
+        self.flush()
+
+    def save_wallpaper(self):
+        code = """print(JSON.stringify(desktops().map(d => {
+    d.currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];
+    return {id:d.id, plugin:d.wallpaperPlugin, image:d.readConfig('Image', ''), fill:d.readConfig('FillMode', 2)};
+})));"""
+        snapshot = json.loads(plasma_script(code))
+        if not isinstance(snapshot, list) or any(not isinstance(item, dict) or
+                not {'id', 'plugin', 'image', 'fill'} <= item.keys() for item in snapshot):
+            raise RuntimeError('Could not snapshot Plasma desktop wallpapers; no changes made.')
+        atomic_write(self.path / 'wallpaper.json', (json.dumps(snapshot) + '\n').encode())
 
     def flush(self):
         atomic_write(self.path / 'manifest.json', (json.dumps(self.files, indent=2) + '\n').encode())
@@ -278,6 +387,9 @@ def transaction(backup):
     try:
         yield
     except BaseException:
+        # Let queued KGlobalAccel writes settle before recovering the saved config.
+        import time
+        time.sleep(0.6)
         try:
             restore_files(backup.path)
             if backup.previous:
@@ -300,17 +412,33 @@ def protected_hashes(config):
 
 
 def shortcut_ids():
-    return {('kwin', key): value for key, value in
-            json.loads((ROOT / 'shortcuts.json').read_text()).items()}
+    groups = json.loads((ROOT / 'shortcuts.json').read_text())['native']
+    return {(component, name): sequences for component, values in groups.items()
+            if not component.endswith('.desktop') or applications.service_path(component)
+            for name, sequences in values.items()}
 
 
-def clear_conflicts(bindings):
+def application_shortcuts(commands):
+    keys = json.loads((ROOT / 'shortcuts.json').read_text())['applications']
+    return {(APPLICATION_COMPONENT, name): keys[name] for name in commands}
+
+
+def clear_conflicts(bindings, backup=None):
     from PySide6.QtGui import QKeySequence
     base = ('org.kde.kglobalaccel', '/kglobalaccel')
     managed = set(shortcut_ids()) | {(c, n) for c, n, _ in workspace_shortcuts()}
-    managed.update(('kwin', 'KdeHyprLaunch' + name) for name in KEYS)
-    # These native defaults compete with Graphite's maximize and browser keys.
-    native_defaults = {('kwin', 'Show Desktop'), ('kwin', 'Overview')}
+    managed.update(('kwin', name) for name in legacy_actions())
+    managed.update((APPLICATION_COMPONENT, name) for name in json.loads((ROOT / 'shortcuts.json').read_text())['applications'])
+    # Native defaults displaced by Graphite's documented bindings.
+    native_defaults = {('kwin', 'Show Desktop'), ('kwin', 'Overview'), ('kwin', 'Edit Tiles'),
+        ('kwin', 'Window One Desktop to the Left'), ('kwin', 'Window One Desktop to the Right'),
+        ('kwin', 'Switch One Desktop to the Left'), ('kwin', 'Switch One Desktop to the Right'),
+        ('kwin', 'Switch One Desktop Down'), ('org.kde.spectacle.desktop', '_launch'),
+        ('org.kde.spectacle.desktop', 'ActiveWindowScreenShot'),
+        ('plasmashell', 'manage activities')}
+    native_defaults.update(('plasmashell', 'activate task manager entry ' + str(n)) for n in range(1, 11))
+    native_defaults.update((name, '_launch') for name in ['org.kde.dolphin.desktop',
+                          'org.kde.konsole.desktop', 'org.kde.plasma-systemmonitor.desktop'])
     changes = {}
     for component, name, sequences in bindings:
         for sequence in sequences.split(';'):
@@ -320,31 +448,49 @@ def clear_conflicts(bindings):
             reply = dbus(*base, 'org.kde.KGlobalAccel.action', str(key))
             owner = ast.literal_eval(re.sub(r'@as\s*', '', reply))[0]
             if owner and owner[:2] != [component, name]:
-                if owner[0] == 'kwin' and tuple(owner[:2]) not in managed | native_defaults:
-                    raise RuntimeError(f'{sequence} belongs to an unmanaged KWin action: {owner[1]}. '
+                if tuple(owner[:2]) not in managed | native_defaults:
+                    raise RuntimeError(f'{sequence} belongs to an unmanaged shortcut action: {owner[1]}. '
                                        'Resolve the conflict in System Settings before installing.')
                 reply = dbus(*base, 'org.kde.KGlobalAccel.shortcut', json.dumps(owner))
                 current = ast.literal_eval(re.sub(r'@ai\s*', '', reply))[0]
                 ids = json.dumps(owner)
                 previous = changes.get(ids, current)
                 changes[ids] = [code for code in previous if code != key]
+    if backup and changes:
+        backup.include_shortcut_owners([json.loads(ids)[:2] for ids in changes])
     for ids, remaining in changes.items():
         dbus(*base, 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(remaining), '4')
+    return bool(changes)
 
 
-def native_shortcuts():
+def native_shortcuts(bindings):
+    """Let KGlobalAccel persist version-appropriate configuration; skip unchanged actions."""
     from PySide6.QtGui import QKeySequence
-    for (component, name), sequences in shortcut_ids().items():
-        keys = [QKeySequence(s)[0].toCombined() for s in sequences.split(';') if s]
-        ids = json.dumps([component, name, 'KWin', name])
-        dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(keys), '4')
+    changed = False
+    for (component, name), sequences in bindings.items():
+        keys = [QKeySequence(sequence)[0].toCombined() for sequence in sequences.split(';') if sequence]
+        ids = json.dumps([component, name, component, name])
+        current = dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.shortcut', ids)
+        current = ast.literal_eval(re.sub(r'@ai\s*', '', current))[0]
+        if set(keys) <= set(current):
+            continue
+        keys = list(dict.fromkeys(current + keys))
+        dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.doRegister', ids)
+        actual = dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.setShortcut', ids, json.dumps(keys), '4')
+        if set(ast.literal_eval(re.sub(r'@ai\s*', '', actual))[0]) != set(keys):
+            raise RuntimeError('Could not register shortcut: ' + sequences)
+        changed = True
+    if changed:
+        import time
+        # KGlobalAccel debounces persistence for 500 ms; let it finish before returning.
+        time.sleep(0.6)
+    return changed
 
 
 def workspace_shortcuts():
     bindings = [('kwin', 'KdeHypr' + prefix + str(n), modifier + str(n % 10))
             for prefix, modifier in [('Desktop', 'Meta+'), ('SendDesktop', 'Meta+Shift+')]
             for n in range(1, 11)]
-    bindings += [('kwin', 'KdeHyprLocalDesktop' + str(n), 'Meta+Ctrl+' + str(n)) for n in range(1, 6)]
     bindings += [('kwin', 'KdeHypr' + name, sequence) for name, sequence in {
         'WorkspaceNext': 'Meta+Ctrl+Right', 'WorkspacePrev': 'Meta+Ctrl+Left',
         'SendNext': 'Meta+Ctrl+Shift+Right', 'SendPrev': 'Meta+Ctrl+Shift+Left',
@@ -353,39 +499,8 @@ def workspace_shortcuts():
     return bindings
 
 
-def tray_ids():
-    def strings(value):
-        return [ast.literal_eval(m.group()) for m in re.finditer(r"'(?:[^'\\]|\\.)*'", value)]
-    try:
-        items = strings(dbus('org.kde.StatusNotifierWatcher', '/StatusNotifierWatcher',
-            'org.freedesktop.DBus.Properties.Get', 'org.kde.StatusNotifierWatcher', 'RegisteredStatusNotifierItems'))
-    except RuntimeError:
-        return []
-    result = []
-    for item in items:
-        service, _, path = item.partition('/')
-        try:
-            result += strings(dbus(service, '/' + path, 'org.freedesktop.DBus.Properties.Get', 'org.kde.StatusNotifierItem', 'Id'))
-        except RuntimeError:
-            pass
-    return result
-
-
-def preflight(options, with_wheel=False, panel=False):
-    doctor.require(sys.modules[__name__], options, full=True, with_wheel=with_wheel, panel=panel)
-
-
-def restart_shell():
-    """Use the Plasma systemd unit where available; support non-systemd sessions."""
-    if shutil.which('systemctl'):
-        try:
-            if run('systemctl', '--user', 'show', 'plasma-plasmashell.service', '--property=LoadState', '--value') == 'loaded':
-                run('systemctl', '--user', 'restart', 'plasma-plasmashell.service')
-                return
-        except RuntimeError:
-            pass
-    # Plasma rereads the restored layout on the next login on other session managers.
-    print('Log out and back in to reload the panel layout.')
+def preflight(options, with_wheel=False):
+    doctor.require(sys.modules[__name__], options, full=True, with_wheel=with_wheel)
 
 
 def resolve_outputs(options):
@@ -406,85 +521,61 @@ def resolve_outputs(options):
     return options
 
 
-def apply(options, config, data, state, with_wheel=False, panel=False):
-    preflight(options, with_wheel, panel)
+def apply(options, config, data, state, with_wheel=False):
+    preflight(options, with_wheel)
     options = resolve_outputs(options)
     families = run('fc-list', ':', 'family')
     if options['font'] not in families:
         options['font'] = 'Fira Code' if 'Fira Code' in families else 'monospace'
-    files = payload(options, data, panel=panel)
-    launchers = json.loads(files[data / 'kde-graphite/runtime/launchers.json'])
-    fragments = json.loads((ROOT / 'config.json').read_text())
+    commands = doctor.report_optional(options)
+    files = payload(options, data, commands)
+    files[config / 'autostart/org.kde.graphite.workspace-keys.desktop'] = autostart_file(data)
+    fragments = theme.configuration(options, sys.modules[__name__])
     if options['altgr_as_super']:
         keyboard_files, fragments['kxkbrc'] = keyboard_configuration(config)
         files.update(keyboard_files)
-    # Preserve the wheel state unless explicitly enabling the native effect.
-    fragments['kwinrc']['Plugins'].pop(WHEEL + 'Enabled', None)
+    fragments['kwinrc']['Windows']['PerOutputVirtualDesktops'] = 'true'
+    fragments['kwinrc']['Plugins'] = {'kde-hypr-bridgeEnabled': 'true'}
+    installed = read_config(config / 'kwinrc')
+    for name in ['kde-hypr-launchers', 'kde-hypr-launchers-v2']:
+        if installed.has_option('Plugins', name + 'Enabled'):
+            fragments['kwinrc']['Plugins'][name + 'Enabled'] = 'false'
     if with_wheel:
         fragments['kwinrc']['Plugins'][WHEEL + 'Enabled'] = 'true'
     fragments['kwinrc']['Script-kde-hypr-bridge'] = {
         'PrimaryOutput': options['primary_output'], 'SecondaryOutput': options['secondary_output']}
-    palette = read_config(ROOT / 'assets/color-schemes/TerminalGraphite.colors')
-    fragments['kdeglobals'] = {group: dict(palette[group]) for group in palette.sections() if group != 'General'}
-    fonts = theme.font_values(options)
-    fragments['kdeglobals'].update({'General': {'ColorScheme': 'TerminalGraphite', **fonts['General']},
-        'KDE': {'LookAndFeelPackage': theme.THEME_ID, 'widgetStyle': 'Breeze', 'AnimationDurationFactor': '0'}, 'Icons': {'Theme': 'breeze-dark'}})
-    fragments['kdeglobals']['WM'].update(fonts['WM'])
-    fragments['kwinrc']['Desktops'] = {'Number': '5', 'Rows': '1', **{f'Name_{n}': str(n) for n in range(1, 6)}}
-    fragments['plasmarc'] = {'Theme': {'name': 'default'}}
+    fragments['kwinrc']['Desktops'] = {'Number': '5'}
+    bindings = {**shortcut_ids(), **application_shortcuts(commands),
+                **{(c, n): seq for c, n, seq in workspace_shortcuts()}}
     before = protected_hashes(config)
-    retired = [data / 'kde-graphite/runtime' / name for name in RETIRED_UTILITIES.values()]
+    retired = retired_files(data)
     backup = Backup(state)
-    backup.save([config / name for name in set(fragments) | {'kglobalshortcutsrc', 'plasmashellrc',
-        'plasma-org.kde.plasma.desktop-appletsrc'}] + [config / 'kdedefaults/package'] + retired + list(files))
+    selections = {str(config / name): {group: list(values) for group, values in groups.items()}
+                  for name, groups in fragments.items()}
+    selections[str(config / 'kglobalshortcutsrc')] = shortcut_groups(
+        list(bindings) + [('kwin', name) for name in legacy_actions()])
+    backup.save([config / name for name in fragments] + [config / 'kglobalshortcutsrc',
+                config / 'kdedefaults/package'] + retired + list(files), selections)
+    backup.save_wallpaper()
     print(f'Backup: {backup.path}', flush=True)
     with transaction(backup):
-        # Stop KDE's GTK synchronizer before changing any palette values.
-        dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
-        dbus('org.kde.kded6', '/kded', 'org.kde.kded6.unloadModule', 'gtkconfig')
-        bindings = [(c, n, seq) for (c, n), seq in shortcut_ids().items()]
-        bindings += [('kwin', 'KdeHyprLaunch' + name, seq) for name, seq in KEYS.items() if name in launchers]
-        bindings += workspace_shortcuts()
-        if panel:
-            bindings += [('plasmashell', 'graphite-notifications', 'Meta+A'), ('plasmashell', 'graphite-tray', 'Meta+X')]
-        clear_conflicts(bindings)
+        changed = clear_conflicts([(c, n, seq) for (c, n), seq in bindings.items()], backup)
         for path, content in files.items():
             atomic_write(path, content)
         for name, groups in fragments.items():
             merge_config(config / name, groups)
-        retire_utilities(config, data)
-        (config / 'kdedefaults').mkdir(parents=True, exist_ok=True)
-        (config / 'kdedefaults/package').write_text(theme.THEME_ID + '\n')
-        shortcut_groups = {'kwin': {name: (seq.replace(';', '\\t') or 'none') + ',none,Graphite: ' + name
-                                   for (component, name), seq in shortcut_ids().items()}}
-        for name, sequence in KEYS.items():
-            shortcut_groups['kwin']['KdeHyprLaunch' + name] = (sequence if name in launchers else 'none') + ',none,Graphite: ' + name
-        for component, name, sequence in workspace_shortcuts():
-            shortcut_groups['kwin'][name] = sequence + ',none,Graphite: ' + name
-        merge_config(config / 'kglobalshortcutsrc', shortcut_groups)
-        native_shortcuts()
-        # Load the new scripts at the next login. Unload/reload cycles have crashed Qt's GC.
-        dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', theme.wallpaper_script(data))
-        if panel:
-            script = (ROOT / 'templates/panel.js').read_text().replace('@@PANEL_HEIGHT@@', str(options['panel_height']))
-            script = script.replace('@@APPLICATION_TRAY_IDS@@', json.dumps(tray_ids()))
-            script = script.replace('@@PRIMARY_OUTPUT@@', json.dumps(options['primary_output']))
-            result = dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript', script)
-            if any(error in result for error in ['Error:', 'TypeError', 'ReferenceError']):
-                raise RuntimeError(result)
+        changed = retire_shortcuts(config) or changed
+        for path in retired:
+            path.unlink()
+        atomic_write(config / 'kdedefaults/package', (theme.THEME_ID + '\n').encode())
+        registered = native_shortcuts(bindings)
+        if changed and not registered:
             import time
-            time.sleep(1)
-            applets = config / 'plasma-org.kde.plasma.desktop-appletsrc'
-            current = read_config(applets)
-            notification_shortcut = 'Meta+A'
-            for section in current.sections():
-                if current[section].get('plugin') == 'org.kde.plasma.notifications':
-                    merge_config(applets, {section + '][Shortcuts': {'global': notification_shortcut}})
-                    notification_shortcut = ''
-            restart_shell()
+            time.sleep(0.6)
+        plasma_script(theme.wallpaper_script(data))
         if before != protected_hashes(config):
             raise RuntimeError(f'A protected desktop config changed during installation. Backup: {backup.path}')
-        print('Installed. Log out and back into KDE to activate scripts, workspaces and shortcuts. Then run: python3 install.py check')
+        print('Installed. Log out and back into KDE to activate workspaces and shortcuts. Then run: python3 install.py check')
 
 
 def check(with_wheel=None):
@@ -510,23 +601,30 @@ def check(with_wheel=None):
         raise RuntimeError('Expected five native desktops')
     if with_wheel and kwin('/Effects', 'org.kde.kwin.Effects.isEffectLoaded', WHEEL) != '(true,)':
         raise RuntimeError('Workspace wheel effect is not loaded')
+    if not (data / 'kglobalaccel' / APPLICATION_COMPONENT).is_file():
+        raise RuntimeError('Native Graphite shortcut service is missing. Re-run install and log in again.')
+    if not (config / 'autostart/org.kde.graphite.workspace-keys.desktop').is_file():
+        raise RuntimeError('Keyboard-layout autostart entry is missing. Re-run install.')
     from PySide6.QtGui import QKeySequence
     launchers = json.loads((data / 'kde-graphite/runtime/launchers.json').read_text())
-    for name, sequence in KEYS.items():
-        if name not in launchers:
-            continue
-        ids = json.dumps(['kwin', 'KdeHyprLaunch' + name, 'KWin', 'Graphite: ' + name])
+    bindings = {**shortcut_ids(), **application_shortcuts(launchers),
+                **{(c, n): seq for c, n, seq in workspace_shortcuts()}}
+    for (component, name), sequences in bindings.items():
+        ids = json.dumps([component, name, component, name])
         actual = dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.shortcut', ids)
         keys = ast.literal_eval(re.sub(r'@ai\s*', '', actual))[0]
-        if QKeySequence(sequence)[0].toCombined() not in keys:
-            raise RuntimeError(f'Shortcut is not registered: {sequence}')
-    for component, name, sequence in workspace_shortcuts():
-        key = QKeySequence(sequence)[0].toCombined()
-        reply = dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.action', str(key))
-        owner = ast.literal_eval(re.sub(r'@as\s*', '', reply))[0]
-        if owner[:2] != [component, name]:
-            raise RuntimeError(f'Workspace shortcut has the wrong handler: {sequence}')
-    print(f'Scripts, five desktops, {len(launchers)} application shortcuts and {len(workspace_shortcuts())} workspace shortcuts verified.')
+        for sequence in sequences.split(';'):
+            key = QKeySequence(sequence)[0].toCombined()
+            if key not in keys:
+                raise RuntimeError(f'Shortcut is not registered: {sequence}')
+            reply = dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel.action', str(key))
+            owner = ast.literal_eval(re.sub(r'@as\s*', '', reply))[0]
+            if owner[:2] != [component, name]:
+                raise RuntimeError(f'Shortcut has a conflicting handler: {sequence}')
+    if dbus('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus.NameHasOwner',
+            'org.kde.GraphiteWorkspaceKeys') != '(true,)':
+        raise RuntimeError('Workspace keyboard-layout helper is not running. Log in again.')
+    print(f'Workspace script, five desktops and {len(bindings)} native/global shortcut actions verified.')
 
 
 def install_wheel(config, data, state):
@@ -546,15 +644,16 @@ def install_wheel(config, data, state):
     plugin = plugin_root / 'kwin/effects/plugins' / (WHEEL + '.so')
     environment = config / 'plasma-workspace/env/graphite-wheel.sh'
     backup = Backup(state)
-    backup.save([plugin, environment, config / 'kwinrc'])
+    backup.save([plugin, environment, config / 'kwinrc'],
+                {str(config / 'kwinrc'): {'Plugins': [WHEEL + 'Enabled']}})
     with transaction(backup):
         plugin.parent.mkdir(parents=True, exist_ok=True)
         # Keep a currently mapped plugin intact; activate the new inode at login.
         atomic_copy(build / (WHEEL + '.so'), plugin)
         environment.parent.mkdir(parents=True, exist_ok=True)
-        environment.write_text('# Graphite workspace-wheel effect; Plasma session only.\n'
-                               'export QT_PLUGIN_PATH=' + shlex.quote(str(plugin_root)) +
-                               '${QT_PLUGIN_PATH:+:"$QT_PLUGIN_PATH"}\n')
+        atomic_write(environment, ('# Graphite workspace-wheel effect; Plasma session only.\n'
+                                  'export QT_PLUGIN_PATH=' + shlex.quote(str(plugin_root)) +
+                                  '${QT_PLUGIN_PATH:+:"$QT_PLUGIN_PATH"}\n').encode())
         merge_config(config / 'kwinrc', {'Plugins': {WHEEL + 'Enabled': 'true'}})
         print(f'Backup: {backup.path}')
         print('Installed the project wheel effect for this user. No system packages were installed.')
@@ -571,12 +670,16 @@ def restore(path):
             atomic_write(pointer, previous.read_bytes())
         else:
             pointer.unlink()
-    restart_shell()
     print('Settings restored. Log out and back into KDE to reload all shortcut registrations.')
 
 
 def restore_files(path):
     entries = json.loads((path / 'manifest.json').read_text())
+    wallpaper = path / 'wallpaper.json'
+    snapshot = json.loads(wallpaper.read_text()) if wallpaper.exists() else None
+    if snapshot is not None and (not isinstance(snapshot, list) or any(not isinstance(item, dict) or
+            not {'id', 'plugin', 'image', 'fill'} <= item.keys() for item in snapshot)):
+        raise RuntimeError('Invalid wallpaper backup; no files changed.')
     # Validate the complete backup before replacing the first destination.
     for entry in entries:
         target = Path(entry['path'])
@@ -585,13 +688,65 @@ def restore_files(path):
             raise RuntimeError('Unsafe restore destination: ' + str(target))
         if entry['existed'] and (source.parent != path or not source.is_file() or source.is_symlink()):
             raise RuntimeError('Missing or unsafe backup file: ' + str(source))
+    scoped = {}
     for entry in entries:
         target = Path(entry['path'])
-        if entry['existed']:
+        groups = entry.get('groups')
+        # Older backups predate entry selections. Never restore foreign KWin scripts.
+        if groups is None and target.name == 'kwinrc':
+            groups = {group: list(values) for group, values in json.loads((ROOT / 'config.json').read_text())['kwinrc'].items()}
+            groups.update({'Windows': ['BorderlessMaximizedWindows', 'PerOutputVirtualDesktops'],
+                           'Desktops': ['Number'], 'Script-kde-hypr-bridge': ['PrimaryOutput', 'SecondaryOutput'],
+                           'Plugins': ['kde-hypr-bridgeEnabled', 'kde-hypr-launchersEnabled',
+                                       'kde-hypr-launchers-v2Enabled', WHEEL + 'Enabled']})
+        if groups is None and target.name == 'kglobalshortcutsrc':
+            groups = shortcut_groups(list(shortcut_ids()) + [(c,n) for c,n,_ in workspace_shortcuts()]
+                                     + [('kwin', name) for name in legacy_actions()])
+        if groups is not None:
+            if not isinstance(groups, dict) or any(not isinstance(names, list) or
+                    not all(isinstance(name, str) for name in names) for names in groups.values()):
+                raise RuntimeError('Invalid scoped configuration backup; no files changed.')
+            original = (path / entry['copy']).read_text() if entry['existed'] else ''
+            current = target.read_text() if target.exists() else ''
+            scoped[str(target)] = restored_config(current, original, groups)
+    legacy_layouts = [entry for entry in entries if Path(entry['path']).name == 'plasma-org.kde.plasma.desktop-appletsrc']
+    if snapshot is None and legacy_layouts and legacy_layouts[0]['existed']:
+        original = read_config(path / legacy_layouts[0]['copy'])
+        snapshot = []
+        for section in original.sections():
+            match = re.fullmatch(r'Containments\]\[(\d+)', section)
+            if not match or original[section].get('plugin') == 'org.kde.panel' or 'wallpaperplugin' not in original[section]:
+                continue
+            group = section + '][Wallpaper][org.kde.image][General'
+            snapshot.append({'id': int(match[1]), 'plugin': original[section]['wallpaperplugin'],
+                             'image': original.get(group, 'Image', fallback=''),
+                             'fill': original.get(group, 'FillMode', fallback='2')})
+    for entry in entries:
+        target = Path(entry['path'])
+        if target.name == 'plasma-org.kde.plasma.desktop-appletsrc':
+            continue  # Legacy backups restore desktop wallpaper through Plasma, never whole panels.
+        if str(target) in scoped:
+            content = scoped[str(target)]
+            if not entry['existed'] and not content.strip():
+                target.unlink(missing_ok=True)
+            else:
+                atomic_write(target, content.encode())
+        elif entry['existed']:
             target.parent.mkdir(parents=True, exist_ok=True)
             atomic_copy(path / entry['copy'], target)
         elif target.exists():
             target.unlink()
+    if snapshot:
+        code = 'var saved = ' + json.dumps(snapshot) + """;
+for (const d of desktops()) {
+    const old = saved.find(item => item.id === d.id);
+    if (!old) continue;
+    d.currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];
+    d.writeConfig('Image', old.image);
+    d.writeConfig('FillMode', old.fill);
+    d.wallpaperPlugin = old.plugin;
+}"""
+        plasma_script(code)
 
 
 def main():
@@ -603,17 +758,12 @@ def main():
     wheel = parser.add_mutually_exclusive_group()
     wheel.add_argument('--with-wheel', action='store_true', help='Enable the separately compiled workspace wheel plugin')
     wheel.add_argument('--without-wheel', action='store_true', help='Skip wheel verification; installation preserves existing wheel state')
-    panels = parser.add_mutually_exclusive_group()
-    panels.add_argument('--panel', action='store_true', help='Create or replace top bars; existing bars are retained by default')
-    panels.add_argument('--no-panel', action='store_true', help='Compatibility alias: retain existing bars')
     args = parser.parse_args()
     if args.value and args.command not in ['doctor', 'build-theme', 'restore']:
         parser.error('Unexpected argument for ' + args.command + ': ' + args.value)
-    if args.command not in ['install', 'doctor'] and (args.panel or args.no_panel):
-        parser.error('--panel and --no-panel apply only to install or doctor install')
     if args.command not in ['install', 'doctor', 'check'] and (args.with_wheel or args.without_wheel):
         parser.error('Wheel verification flags apply only to install, doctor install or check')
-    if args.command == 'doctor' and args.value != 'install' and (args.panel or args.no_panel or args.with_wheel or args.without_wheel):
+    if args.command == 'doctor' and args.value != 'install' and (args.with_wheel or args.without_wheel):
         parser.error('Workflow flags require doctor install')
     if args.settings and args.command not in ['install', 'theme', 'doctor']:
         parser.error('--settings applies only to install, theme or doctor')
@@ -624,7 +774,7 @@ def main():
     if args.command == 'doctor':
         if args.value not in [None, 'theme', 'install']:
             parser.error('Use: install.py doctor theme|install')
-        errors = doctor.problems(sys.modules[__name__], settings(args.settings), full=args.value == 'install', with_wheel=args.with_wheel, panel=args.panel)
+        errors = doctor.problems(sys.modules[__name__], settings(args.settings), full=args.value == 'install', with_wheel=args.with_wheel)
         if not errors and args.value == 'install':
             resolve_outputs(settings(args.settings))
         if errors:
@@ -639,15 +789,15 @@ def main():
     if args.command == 'install':
         options = settings(args.settings)
         if args.dry_run:
-            print(f'Would install {len(payload(options, data, panel=args.panel))} asset/script files under {data}.')
+            print(f'Would install {len(payload(options, data))} asset/script files under {data}.')
             print(f'Would merge theme and shortcut settings under {config}; use five desktops per output.')
-            print('Would ' + ('replace/create top bars.' if args.panel else 'retain existing bars.'))
+            print('Would preserve all existing panels and native Pager settings.')
             if options['altgr_as_super']:
                 print('Would map AltGr to an additional Super key, preserving existing layouts and other options.')
-            print('Would remove retired Graphite utility helpers and shortcut registrations, with backups.')
+            print('Would retire obsolete Graphite launchers with backups; preserve installed widgets used by existing panels.')
             print('Would back up touched files and leave other desktop configs unchanged. No changes made.')
         else:
-            apply(options, config, data, state, args.with_wheel, args.panel)
+            apply(options, config, data, state, args.with_wheel)
     elif args.command == 'wheel':
         if args.dry_run:
             print(f'Would build the project wheel effect using installed tools; copy it under {data / "kde-graphite/wheel"}.')

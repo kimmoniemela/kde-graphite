@@ -30,7 +30,7 @@ class InstallTests(unittest.TestCase):
         owner = ['kwin', 'IndependentScriptAction', 'KWin', 'Custom action']
         native = ['kwin', 'Window Fullscreen', 'KWin', 'Fullscreen']
         with patch.object(installer, 'dbus', side_effect=[repr((native,)), repr(([123],)), repr((owner,))]) as dbus:
-            with self.assertRaisesRegex(RuntimeError, 'unmanaged KWin action'):
+            with self.assertRaisesRegex(RuntimeError, 'unmanaged shortcut action'):
                 installer.clear_conflicts([('kwin', 'Window Close', 'Meta+Q;Meta+W')])
         # Even earlier native conflicts must remain unchanged when a script blocks installation.
         self.assertEqual(dbus.call_count, 3)
@@ -63,12 +63,12 @@ class InstallTests(unittest.TestCase):
     def test_renders_for_destination_with_spaces_and_no_source_machine_paths(self):
         options = installer.settings()
         destination = Path('/tmp/a different home/data')
-        files = installer.payload(options, destination, panel=True)
+        files = installer.payload(options, destination)
         launchers = json.loads(files[destination / 'kde-graphite/runtime/launchers.json'])
         self.assertEqual(launchers['Terminal'], ['@default'])
-        qml = files[destination / 'kwin/scripts/kde-hypr-launchers-v2/contents/ui/main.qml'].decode()
-        self.assertNotIn('@@', qml)
-        self.assertIn("'/tmp/a different home/data/kde-graphite/runtime/launch-app.py'", qml)
+        desktop = files[destination / 'kglobalaccel' / installer.APPLICATION_COMPONENT].decode()
+        self.assertNotIn('@@', desktop)
+        self.assertIn('"/tmp/a different home/data/kde-graphite/runtime/launch-app.py"', desktop)
         runtime = destination / 'kde-graphite/runtime'
         self.assertEqual({p.name for p in files if p.parent == runtime},
                          {'launch-app.py', 'workspace-keys.py', 'applications.py', 'launchers.json'})
@@ -110,21 +110,23 @@ class InstallTests(unittest.TestCase):
     def test_native_move_shortcuts_leave_number_keys_for_monitor_aware_actions(self):
         bindings = installer.shortcut_ids()
         for n in range(1, 6):
-            self.assertEqual(bindings['kwin', f'Window to Desktop {n}'], '')
+            self.assertEqual(bindings['kwin', f'Switch to Desktop {n}'], f'Meta+Ctrl+{n}')
+            self.assertNotIn(('kwin', f'Window to Desktop {n}'), bindings)
 
     @unittest.skipUnless(shutil.which('node'), 'Node is needed for the KWin scripting mock')
     def test_number_keys_and_move_keys_share_the_same_monitor_destinations(self):
-        script = (ROOT / 'templates/workspaces.js').read_text()
+        script = installer.workspace_script()
         mock = """
 const primary = {name: 'PRIMARY'}, secondary = {name: 'SECONDARY'};
 const callbacks = {}, asynchronous = [];
+const selected = new Map([[primary, 1], [secondary, 2]]);
 const workspace = {
     screens: [secondary, primary], desktops: [1,2,3,4,5], activeScreen: primary,
     activeWindow: {skipPager: false, noBorder: true, output: secondary, deleted: false, specialWindow: false},
     windowRemoved: {connect() {}},
     windowList: () => [],
-    currentDesktopForScreen: s => ({name: '1'}),
-    setCurrentDesktopForScreen: (d, s) => { workspace.selected = {d, s}; },
+    currentDesktopForScreen: s => selected.get(s),
+    setCurrentDesktopForScreen: (d, s) => { workspace.selected = {d, s}; selected.set(s, d); },
     slotSwitchToNextScreen: () => { workspace.activeScreen = workspace.activeScreen === primary ? secondary : primary; },
     sendClientToScreen: (w, s) => {
         w.output = s;
@@ -142,6 +144,9 @@ function QTimer() {
 function drain() { while (asynchronous.length) asynchronous.shift()(); }
 """
         checks = """
+callbacks['Meta+2']();
+drain();
+if (selected.get(secondary) !== 2) throw Error('Primary switch changed the secondary desktop');
 for (const n of [10,1,9,2,8,3,7,4,6,5]) {
     const output = n <= 5 ? primary : secondary;
     const desktop = (n - 1) % 5 + 1;
@@ -164,47 +169,39 @@ const w = workspace.activeWindow;
 w.noBorder = true;
 w.skipPager = false;
 callbacks['Meta+Shift+S']();
-if (!w.minimized || !w.keepAbove || w.skipPager || !w.noBorder)
+if (!w.minimized || w.keepAbove || w.skipPager || !w.noBorder)
     throw Error('Scratchpad changed unrelated window properties');
 callbacks['Meta+S']();
-if (w.minimized || w.output !== primary || w.desktops[0].name !== '1')
+if (w.minimized || w.output !== primary || w.desktops[0] !== 5)
     throw Error('Scratchpad did not restore on the focused workspace');
 callbacks['Meta+S']();
-if (!w.minimized) throw Error('Scratchpad did not hide');
+if (!w.minimized || w.keepAbove) throw Error('Scratchpad did not restore keep-above state');
+w.keepAbove = true;
+callbacks['Meta+S']();
+callbacks['Meta+S']();
+if (!w.keepAbove) throw Error('Scratchpad changed a preexisting keep-above preference');
+callbacks['Meta+Ctrl+Right']();
+if (selected.get(primary) !== 5) throw Error('Next workspace must clamp at five');
+callbacks['Meta+Ctrl+Left']();
+if (selected.get(primary) !== 4) throw Error('Previous workspace failed');
+callbacks['Meta+Ctrl+Shift+Left']();
+if (w.desktops[0] !== 3 || selected.get(primary) !== 4)
+    throw Error('Relative send followed the window or chose the wrong desktop');
+workspace.windowList = () => [1,2].map(d => ({output:primary, desktops:[d], specialWindow:false, minimized:false}));
+callbacks['Meta+Ctrl+Down']();
+if (selected.get(primary) !== 3) throw Error('First empty desktop failed');
+const ruled = {output:primary, desktops:[3], specialWindow:false, deleted:false, minimized:false};
+Object.defineProperty(ruled, 'keepAbove', {get: () => false, set: () => {}});
+workspace.activeWindow = ruled;
+callbacks['Meta+Shift+S']();
+callbacks['Meta+S']();
+if (ruled.keepAbove) throw Error('Scratchpad overrode the effective native window rule');
+callbacks['Meta+S']();
+if (!ruled.minimized) throw Error('Rule-protected scratchpad did not hide');
+
 """
         subprocess.run(['node', '-e', mock + script + checks], check=True, capture_output=True, text=True)
 
-    @unittest.skipUnless(shutil.which('node'), 'Node is needed for the Plasma scripting mock')
-    def test_panels_cover_each_screen_without_duplicates_or_shortcut_conflicts(self):
-        script = (ROOT / 'templates/panel.js').read_text().replace('@@PANEL_HEIGHT@@', '28')
-        script = script.replace('@@APPLICATION_TRAY_IDS@@', '[]').replace('@@PRIMARY_OUTPUT@@', '"PRIMARY"')
-        mock = """
-const bars = [];
-function Panel() {
-    this.items = [];
-    this.widgets = () => [...this.items];
-    this.addWidget = type => {
-        const w = {type, writeConfig() {}, remove: () => this.items.splice(this.items.indexOf(w), 1)};
-        this.items.push(w);
-        return w;
-    };
-    bars.push(this);
-}
-function panels() { return bars; }
-function desktops() { return [0, 1].map(screen => ({screen, writeConfig() {}})); }
-function print() {}
-function verify() {
-    if (bars.length !== 2 || new Set(bars.map(p => p.screen)).size !== 2)
-        throw Error('Expected one panel per screen');
-    if (bars.filter(p => p.items.some(w => w.globalShortcut === 'Meta+X')).length !== 1)
-        throw Error('Expected exactly one tray keyboard shortcut');
-}
-"""
-        # A reapply must reuse both bars; a live addition must leave the original intact.
-        code = mock + script + '\nverify();\n' + script + '\nverify();\n'
-        code += 'bars.pop(); const original = bars[0].items[0]; var graphiteOnlyMissing = true;\n'
-        code += script + '\nverify(); if (bars[0].items[0] !== original) throw Error("Original bar changed");'
-        subprocess.run(['node', '-e', code], check=True, capture_output=True, text=True)
 
 
 if __name__ == '__main__':

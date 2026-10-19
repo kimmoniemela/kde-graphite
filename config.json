@@ -1,8 +1,7 @@
 {
   "kwinrc": {
     "Windows": {
-      "BorderlessMaximizedWindows": "false",
-      "PerOutputVirtualDesktops": "true"
+      "BorderlessMaximizedWindows": "false"
     },
     "org.kde.kdecoration2": {
       "library": "org.kde.breeze",
@@ -11,27 +10,6 @@
       "BorderSizeAuto": "false",
       "ButtonsOnLeft": "",
       "ButtonsOnRight": "IAX"
-    },
-    "Plugins": {
-      "blurEnabled": "false",
-      "contrastEnabled": "false",
-      "fadeEnabled": "false",
-      "fadedesktopEnabled": "false",
-      "fadingpopupsEnabled": "false",
-      "fullscreenEnabled": "false",
-      "magicLampEnabled": "false",
-      "maximizeEnabled": "false",
-      "scaleEnabled": "false",
-      "slideEnabled": "false",
-      "slidingnotificationsEnabled": "false",
-      "slidingpopupsEnabled": "false",
-      "squashEnabled": "false",
-      "windowapertureEnabled": "false",
-      "wobblywindowsEnabled": "false",
-      "kde-hypr-bridgeEnabled": "true",
-      "kde-hypr-launchers-v2Enabled": "true",
-      "kde-hypr-launchersEnabled": "false",
-      "kwin_hypr_scroll_desktopEnabled": "true"
     }
   },
   "breezerc": {
@@ -57,11 +35,6 @@
     },
     "Greeter][Wallpaper][org.kde.color][General": {
       "Color": "#111416"
-    }
-  },
-  "kded5rc": {
-    "Module-gtkconfig": {
-      "autoload": "false"
     }
   }
 }

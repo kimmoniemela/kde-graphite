@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 import applications
 import install
-import theme
 
 
 class ArchitectureTests(unittest.TestCase):
@@ -21,11 +20,10 @@ class ArchitectureTests(unittest.TestCase):
              patch.object(applications.shutil, 'which', return_value=None):
             files = install.payload(install.settings(), Path('/tmp/new home/data'))
             commands = json.loads(files[Path('/tmp/new home/data/kde-graphite/runtime/launchers.json')])
-            qml = files[Path('/tmp/new home/data/kwin/scripts/kde-hypr-launchers-v2/contents/ui/main.qml')].decode()
-        self.assertEqual(set(commands), {'SessionMenu'})
-        self.assertNotIn('KdeHyprLaunchCalculator', qml)
-        self.assertNotIn('KdeHyprLaunchTerminal', qml)
-        self.assertIn('KdeHyprLaunchSessionMenu', qml)
+            desktop = files[Path('/tmp/new home/data/kglobalaccel') / install.APPLICATION_COMPONENT].decode()
+        self.assertEqual(commands, {})
+        self.assertNotIn('[Desktop Action Calculator]', desktop)
+        self.assertNotIn('[Desktop Action Terminal]', desktop)
 
     def test_optional_app_selection_uses_installed_calculator(self):
         with patch.object(applications.shutil, 'which', side_effect=lambda name: '/bin/app' if name == 'gnome-calculator' else None):
@@ -91,7 +89,7 @@ class ArchitectureTests(unittest.TestCase):
             pointer = state / 'kde-graphite/latest-backup'
             install.atomic_write(pointer, b'/previous/backup\n')
             with patch.object(install, 'preflight'), patch.object(install, 'resolve_outputs', side_effect=lambda o: o), \
-                 patch.object(install, 'run', return_value='monospace'), patch.object(install, 'dbus'), \
+                 patch.object(install, 'run', return_value='monospace'), patch.object(install, 'dbus', return_value="('[]',)"), \
                  patch.object(install, 'clear_conflicts'), \
                  patch.object(install, 'native_shortcuts', side_effect=RuntimeError('simulated late failure')), \
                  contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -110,9 +108,9 @@ class ArchitectureTests(unittest.TestCase):
             original = '# original\n[Windows]\nUnrelated=keep\n'
             (config / 'kwinrc').write_text(original)
             with patch.object(install, 'preflight'), patch.object(install, 'resolve_outputs', side_effect=lambda o: o), \
-                 patch.object(install, 'run', return_value='monospace'), patch.object(install, 'dbus'), \
+                 patch.object(install, 'run', return_value='monospace'), patch.object(install, 'dbus', return_value="('[]',)"), \
                  patch.object(install, 'clear_conflicts'), patch.object(install, 'native_shortcuts'), \
-                 patch.object(install, 'restart_shell'), contextlib.redirect_stdout(io.StringIO()):
+                 contextlib.redirect_stdout(io.StringIO()):
                 install.apply(install.settings(), config, data, state)
                 first = (config / 'kwinrc').read_bytes()
                 pointer = state / 'kde-graphite/latest-backup'

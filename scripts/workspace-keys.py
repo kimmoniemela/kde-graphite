@@ -74,7 +74,11 @@ def sequences(number, symbol):
     return result
 
 
+_last_symbols = None
+
+
 def apply_layout(index):
+    global _last_symbols
     from PySide6.QtGui import QKeySequence
     reply = run('gdbus', 'call', '--session', '--dest', 'org.kde.keyboard', '--object-path', '/Layouts',
                 '--method', 'org.kde.KeyboardLayouts.getLayoutsList')
@@ -87,16 +91,29 @@ def apply_layout(index):
     variants = config.get('Layout', 'VariantList', fallback='').split(',')
     variant = variants[index] if index < len(variants) else ''
     symbols = shifted_symbols(layout, variant)
+    if symbols == _last_symbols:
+        return
     def bind(number, keys):
         ids = ['kwin', f'KdeHyprSendDesktop{number}', 'KWin', f'Graphite: Send window to workspace {number}']
         codes = [QKeySequence(key)[0].toCombined() for key in keys]
         run('gdbus', 'call', '--session', '--dest', 'org.kde.kglobalaccel', '--object-path', '/kglobalaccel',
             '--method', 'org.kde.KGlobalAccel.setShortcut', json.dumps(ids), json.dumps(codes), '4')
+    # Never steal an alias from another application's or KWin script's shortcut.
+    actions = {f'KdeHyprSendDesktop{n}' for n in range(1, 11)}
+    for number in range(1, 11):
+        for sequence in sequences(number, symbols[number]):
+            key = QKeySequence(sequence)[0].toCombined()
+            reply = run('gdbus', 'call', '--session', '--dest', 'org.kde.kglobalaccel', '--object-path', '/kglobalaccel',
+                        '--method', 'org.kde.KGlobalAccel.action', str(key))
+            owner = ast.literal_eval(reply.replace('@as ', ''))[0]
+            if owner and (owner[0] != 'kwin' or owner[1] not in actions):
+                raise RuntimeError(sequence + ' belongs to ' + owner[1] + '; resolve the shortcut conflict in KDE settings.')
     # Release aliases from the previous layout before assigning symbols to new numbers.
     for number in range(1, 11):
         bind(number, sequences(number, ''))
     for number in range(1, 11):
         bind(number, sequences(number, symbols[number]))
+    _last_symbols = symbols
     print('Graphite workspace move keys updated for ' + layout, flush=True)
 
 

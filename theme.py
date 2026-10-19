@@ -10,14 +10,10 @@ PACKAGE = ROOT / 'theme' / THEME_ID
 WALLPAPERS = ('GraphiteContours', 'GraphiteContoursAlternate')
 
 
-def wallpaper_script(data=None):
+def wallpaper_script(data):
     relative = [Path('plasma/look-and-feel') / THEME_ID / 'contents/wallpapers' / name
                 / 'contents/images/3840x2160.png' for name in WALLPAPERS]
-    if data is not None:
-        images = json.dumps([(data / path).as_uri() for path in relative])
-    else:
-        images = '[' + ', '.join('"file://" + userDataPath("data", ' + json.dumps(str(path))
-                                  + ').split("/").map(encodeURIComponent).join("/")' for path in relative) + ']'
+    images = json.dumps([(data / path).as_uri() for path in relative])
     return (ROOT / 'templates/wallpaper.js').read_text().replace('@@WALLPAPER_IMAGES@@', images)
 
 
@@ -30,26 +26,9 @@ def font_values(options):
                         'smallestReadableFont': small}, 'WM': {'activeFont': title}}
 
 
-def layout_script(options):
-    # The appearance package must also work without Graphite's workspace scripts.
-    prefix = """// Generated from templates/panel.js. No monitor names or widget IDs are stored.
-var plugins = new ConfigFile('kwinrc', 'Plugins');
-var bridge = new ConfigFile('kwinrc', 'Script-kde-hypr-bridge');
-var graphiteBridge = String(plugins.readEntry('kde-hypr-bridgeEnabled')) === 'true';
-var graphitePagerType = graphiteBridge && knownWidgetTypes.includes('org.kde.graphite.workspaces')
-    ? 'org.kde.graphite.workspaces' : 'org.kde.plasma.pager';
-var graphiteAssignShortcuts = graphiteBridge;
-var graphitePrimaryOutput = String(bridge.readEntry('PrimaryOutput') || '');
-"""
-    script = (ROOT / 'templates/panel.js').read_text()
-    return (prefix + script.replace('@@PANEL_HEIGHT@@', str(options['panel_height']))
-            .replace('@@APPLICATION_TRAY_IDS@@', '[]')
-            .replace('@@PRIMARY_OUTPUT@@', 'graphitePrimaryOutput')) + wallpaper_script()
-
-
 def package_files(options):
     files = {p.relative_to(PACKAGE): p.read_bytes() for p in PACKAGE.rglob('*') if p.is_file()}
-    # Canonical palette and layout also feed the full installer.
+    # The canonical palette also feeds the workflow installer.
     files[Path('contents/colors')] = (ROOT / 'assets/color-schemes/TerminalGraphite.colors').read_bytes()
     defaults = (PACKAGE / 'contents/defaults').read_text()
     fonts = font_values(options)
@@ -61,7 +40,6 @@ def package_files(options):
     for old, new in replacements.items():
         defaults = defaults.replace(old, new)
     files[Path('contents/defaults')] = defaults.encode()
-    files[Path('contents/layouts/org.kde.plasma.desktop-layout.js')] = layout_script(options).encode()
     return files
 
 
@@ -81,7 +59,7 @@ def payload(options, data):
 
 def build_archive(destination):
     # Portable defaults, independent of the font installed on the build machine.
-    options = {'font': 'Fira Code', 'font_size': 10, 'panel_height': 28}
+    options = {'font': 'Fira Code', 'font_size': 10}
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(destination, 'w:gz') as archive:
@@ -93,6 +71,26 @@ def build_archive(destination):
     return destination
 
 
+def configuration(options, api):
+    """The same appearance settings feed both installation profiles."""
+    appearance = json.loads((ROOT / 'config.json').read_text())
+    palette = api.read_config(ROOT / 'assets/color-schemes/TerminalGraphite.colors')
+    appearance['kdeglobals'] = {group: dict(palette[group]) for group in palette.sections() if group != 'General'}
+    fonts = font_values(options)
+    appearance['kdeglobals'].update({'General': {'ColorScheme': 'TerminalGraphite', **fonts['General']},
+                                    'KDE': {'LookAndFeelPackage': THEME_ID, 'widgetStyle': 'Breeze'},
+                                    'Icons': {'Theme': 'breeze-dark'}})
+    appearance['kdeglobals']['WM'].update(fonts['WM'])
+    appearance['plasmarc'] = {'Theme': {'name': 'default'}}
+    return appearance
+
+
+def retired_layouts(data):
+    """Old package layout scripts must not remain available to reset user panels."""
+    root = data / 'plasma/look-and-feel' / THEME_ID / 'contents/layouts'
+    return [path for path in [root / 'defaults', root / 'org.kde.plasma.desktop-layout.js'] if path.exists()]
+
+
 def install_theme(options, config, data, state, api):
     import doctor
     doctor.require(api, options)
@@ -101,44 +99,26 @@ def install_theme(options, config, data, state, api):
     if options['font'] not in families:
         options['font'] = 'Fira Code' if 'Fira Code' in families else 'monospace'
     files = payload(options, data)
-    fragments = json.loads((ROOT / 'config.json').read_text())
-    # Appearance settings only: leave KWin scripts and workspace shortcuts untouched.
-    kwin = fragments['kwinrc']
-    appearance = {name: fragments[name] for name in ['breezerc', 'kscreenlockerrc', 'kded5rc']}
-    appearance['kwinrc'] = {'org.kde.kdecoration2': {**kwin['org.kde.kdecoration2'],
-                          'library': 'org.kde.breeze', 'theme': 'Breeze'},
-                          'Windows': {'BorderlessMaximizedWindows': 'false'},
-                          'Plugins': {k: v for k, v in kwin['Plugins'].items()
-                                      if k.endswith('Enabled') and v == 'false' and not k.startswith('kde-hypr-')},
-                          }
-    palette = api.read_config(ROOT / 'assets/color-schemes/TerminalGraphite.colors')
-    appearance['kdeglobals'] = {group: dict(palette[group]) for group in palette.sections() if group != 'General'}
-    fonts = font_values(options)
-    appearance['kdeglobals'].update({'General': {'ColorScheme': 'TerminalGraphite', **fonts['General']},
-                                    'KDE': {'LookAndFeelPackage': THEME_ID, 'widgetStyle': 'Breeze', 'AnimationDurationFactor': '0'},
-                                    'Icons': {'Theme': 'breeze-dark'}})
-    appearance['kdeglobals']['WM'].update(fonts['WM'])
-    appearance['plasmarc'] = {'Theme': {'name': 'default'}}
+    appearance = configuration(options, api)
+    retired = retired_layouts(data)
     protected = api.protected_hashes(config)
     backup = api.Backup(state)
     marker = config / 'kdedefaults/package'
-    backup.save(list(files) + [config / name for name in appearance]
-                + [marker, config / 'plasma-org.kde.plasma.desktop-appletsrc'])
+    backup.save(list(files) + [config / name for name in appearance] + [marker] + retired,
+                {str(config / name): {group: list(values) for group, values in groups.items()}
+                 for name, groups in appearance.items()})
+    backup.save_wallpaper()
     print(f'Backup: {backup.path}', flush=True)
     with api.transaction(backup):
-        # KDE's GTK sync must be stopped before notifying it about palette changes.
-        api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.setModuleAutoloading', 'gtkconfig', 'false')
-        api.dbus('org.kde.kded6', '/kded', 'org.kde.kded6.unloadModule', 'gtkconfig')
         for path, content in files.items():
             api.atomic_write(path, content)
         for name, groups in appearance.items():
             api.merge_config(config / name, groups)
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(THEME_ID + '\n')
-        api.kwin('/KWin', 'org.kde.KWin.reconfigure')
-        api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript',
-                 "theme = 'default';\n" + wallpaper_script(data))
+        for path in retired:
+            path.unlink()
+        api.atomic_write(marker, (THEME_ID + '\n').encode())
+        api.plasma_script(wallpaper_script(data))
         if protected != api.protected_hashes(config):
             raise RuntimeError(f'A protected desktop config changed. Backup: {backup.path}')
-        print('Graphite installed and selected. Reopen System Settings > Colors & Themes > Global Theme.')
-        print('Existing panels, shortcuts, workspaces and KWin scripts retained.')
+        print('Graphite installed and selected. Log out and back in to apply all appearance settings.')
+        print('Existing panels, shortcuts, workspaces, effects and KWin scripts retained.')

@@ -4,6 +4,9 @@ Scope: this project's theme, top bars, workspace/application shortcuts and the
 requested Super+wheel binding. Preserve independent KWin scripts. No
 package-manager installation, removal or update is part of this audit.
 
+These are historical observations. The [current architecture](architecture.md)
+replaces custom panels and launch handlers with native Plasma integration.
+
 ## Environment and findings
 
 | Item | Evidence and result |
@@ -11,12 +14,12 @@ package-manager installation, removal or update is part of this audit.
 | Distribution | CachyOS, Arch based; local `/etc/os-release`. |
 | Desktop | Plasma and KWin 6.8.0, Wayland; Qt and PySide6 6.12.0. |
 | Qt tools | Arch installs `qtpaths` at `/usr/lib/qt6/bin/qtpaths`. Doctor now accepts this path as well as the distribution-suffixed commands. |
-| Normal installer | Installs theme and shortcuts, retaining existing bars and independent KWin scripts. Replacing bars requires `--panel`. |
+| Normal installer | Installs theme and shortcuts, retaining existing bars and independent KWin scripts. Panel rebuilding was an optional operation at the time. |
 | Appearance installer | Needs no KWin scripts and leaves independent scripts and their preferences alone. |
 | Native shortcuts | Minimal installation preserves unrelated navigation bindings and third-party script bindings. Native desktop-number actions are cleared only to avoid competing with Graphite's monitor-aware number keys. |
 | Shortcut conflicts | Previously clearing a conflicting action removed all of its alternative shortcuts. Only the conflicting key is now released; other bindings remain. |
 | Runtime dependencies | Existing application commands come from local settings. The default `kcalc` is absent; the local override already uses installed `gnome-calculator`. Missing commands cause preflight failure, never automatic installation. |
-| Panels | Existing custom bars are retained. Widget installation and panel dependency checks happen only with `--panel`. |
+| Panels | Existing custom bars are retained. The former optional panel mode installed its widgets only on request. |
 | Wheel | Repository source already mapped Super+up to next and Super+down to previous, but no binary was installed on this machine. Added an explicit user-only build/install command, without downloads or sudo. Only those two wheel combinations are bound. |
 | Native build | Removed unnecessary reliance on the full KWin CMake dependency graph. The effect compiles against installed KWin headers/library and Qt/KF libraries. The build passes with the existing packages, without ECM or Vulkan headers. |
 | Binary upgrades | Replace the wheel binary atomically, avoiding overwriting a library currently mapped by KWin. New versions activate after login. KWin's versioned factory IID protects against incompatible plugins. |

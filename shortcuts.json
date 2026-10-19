@@ -1,31 +1,48 @@
 {
-  "Window Close": "Meta+Q",
-  "Window Fullscreen": "Meta+F",
-  "Window Maximize": "Meta+D",
-  "Kill Window": "Meta+Esc",
-  "Walk Through Windows": "Alt+Tab;Meta+Tab",
-  "Switch to Screen to the Left": "Meta+Alt+Left",
-  "Switch to Screen to the Right": "Meta+Alt+Right",
-  "view_zoom_in": "Meta++;Meta+Num++",
-  "view_zoom_out": "Meta+-;Meta+Num+-",
-  "Switch to Desktop 1": "",
-  "Window to Desktop 1": "",
-  "Switch to Desktop 2": "",
-  "Window to Desktop 2": "",
-  "Switch to Desktop 3": "",
-  "Window to Desktop 3": "",
-  "Switch to Desktop 4": "",
-  "Window to Desktop 4": "",
-  "Switch to Desktop 5": "",
-  "Window to Desktop 5": "",
-  "Switch to Desktop 6": "",
-  "Window to Desktop 6": "",
-  "Switch to Desktop 7": "",
-  "Window to Desktop 7": "",
-  "Switch to Desktop 8": "",
-  "Window to Desktop 8": "",
-  "Switch to Desktop 9": "",
-  "Window to Desktop 9": "",
-  "Switch to Desktop 10": "",
-  "Window to Desktop 10": ""
+  "native": {
+    "kwin": {
+      "Window Close": "Meta+Q",
+      "Window Fullscreen": "Meta+F",
+      "Window Maximize": "Meta+D",
+      "Kill Window": "Meta+Esc",
+      "Walk Through Windows": "Alt+Tab;Meta+Tab",
+      "Switch to Screen to the Left": "Meta+Alt+Left",
+      "Switch to Screen to the Right": "Meta+Alt+Right",
+      "view_zoom_in": "Meta++;Meta+Num++",
+      "view_zoom_out": "Meta+-;Meta+Num+-",
+      "Switch to Desktop 1": "Meta+Ctrl+1",
+      "Switch to Desktop 2": "Meta+Ctrl+2",
+      "Switch to Desktop 3": "Meta+Ctrl+3",
+      "Switch to Desktop 4": "Meta+Ctrl+4",
+      "Switch to Desktop 5": "Meta+Ctrl+5"
+    },
+    "org.kde.krunner.desktop": {
+      "_launch": "Meta+Space"
+    },
+    "systemsettings.desktop": {
+      "_launch": "Meta+Z"
+    },
+    "org.kde.plasma.emojier.desktop": {
+      "_launch": "Meta+."
+    },
+    "org.kde.spectacle.desktop": {
+      "RectangularRegionScreenShot": "Print",
+      "FullScreenScreenShot": "Meta+Print"
+    },
+    "ksmserver": {
+      "Log Out": "Meta+Alt+C",
+      "Lock Session": "Meta+L"
+    },
+    "plasmashell": {
+      "show-on-mouse-pos": "Meta+V"
+    }
+  },
+  "applications": {
+    "Terminal": "Meta+Return",
+    "Files": "Meta+E",
+    "Editor": "Meta+T",
+    "Calculator": "Meta+C;Calculator",
+    "Browser": "Meta+W",
+    "ProcessMonitor": "Ctrl+Shift+Esc"
+  }
 }

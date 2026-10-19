@@ -1,113 +1,158 @@
-# Architecture and fresh-machine contract
+# Architecture
 
-Graphite is a minimal KDE Plasma theme and keyboard-driven desktop workflow.
-It uses a small user-level configuration installer. The same source and commands
-apply on supported KDE distributions. Historical Arch and Fedora audits document observations; they
-do not define separate installation variants.
+Graphite is a minimal KDE Plasma theming and keyboard-workflow project.
+Native Plasma owns the desktop. Custom code supplies only the workflow gaps
+listed below; it does not enforce window geometry or manage automatic tiling.
 
-## Boundaries
+## Native functionality and retained extensions
 
-| Component | Responsibility | Dependency boundary |
-| --- | --- | --- |
-| Appearance | Breeze palette, fonts, wallpaper, decorations, lock screen | Plasma 6 and installed Breeze; no application or build dependency |
-| Workflow | Explicit workspace and app shortcuts | Plasma 6.7+ Wayland, PySide6/QtDBus and existing KDE runtime tools |
-| Applications | Resolve desktop defaults at launch; select installed calculator/monitor | Missing optional apps skip their bindings; no package install |
-| Panels | Replace/create top bars | Explicit `--panel`; validate widgets and task manager QML first |
-| Wheel | Native KWin axis-shortcut plugin | Explicit build; installed development files; local KWin ABI |
-| SDDM | System login theme | Separate root command, Qt 6 greeter/QML preflight and backup |
+| Behavior | Implementation and reason |
+| --- | --- |
+| Appearance | Native LookAndFeel package, color scheme, fonts, Breeze, image wallpapers and standard lock screen |
+| Panels and workspace display | User-managed Plasma panels and native Pager; no Graphite containment creation or applets |
+| Window close/maximize/fullscreen, screen focus, zoom | Existing KWin actions |
+| KRunner, settings, emoji, screenshots, clipboard, session menu/lock | Existing KDE service/action registrations |
+| Focused-monitor numbered desktops | Native KWin `Switch to Desktop 1–5` actions |
+| Primary/secondary 1–0 banks and window sends | One small KWin JavaScript script; native numbered actions do not encode a fixed output role and cross-output moves |
+| Relative navigation and sends | Same script; clamps at 1/5 and sends without following. Native relative window moves follow the destination and respect desktop wrapping preferences |
+| First empty desktop and scratchpad | Same script; no equivalent native shortcut combines these behaviors |
+| Shifted Finnish/US number row | One event-driven Python helper; layout-dependent symbols can map to different numbers, so a static union of aliases is ambiguous |
+| Default applications | Short-lived Python resolver followed by `exec`; native command shortcuts cannot resolve all four KDE preferences afresh with arbitrary overrides |
+| AltGr as an extra Super | Optional six-line XKB symbol definition; the stock right-Alt/right-Win swap also changes the ordinary right Super key |
+| Super+wheel anywhere | Optional existing native KWin axis-shortcut effect; ordinary desktop/window wheel bindings have different scope |
 
-The desktop installer never invokes sudo, pip, a system package manager, or a
-download command. It does not modify display modes, GPU configuration, shell
-startup files, other desktop configuration or the selected default applications.
-Runtime scripts are copied into the destination XDG data directory; they have
-no dependency on keeping the source checkout in its original location.
+The native wallpaper CLI sets one image for all desktops; the small wallpaper
+script retains alternating per-screen images and scoped recovery.
 
-## Preferences and capabilities
+The native Pager tracks the current desktop by screen and can filter windows by
+screen. It uses shared desktop names/indices, so it does not reproduce the old
+secondary 6–10 labels or custom occupancy styling. The keyboard mapping remains
+unchanged. Add/configure Pager through Plasma; existing panels are never edited.
+See KDE's [Pager model](https://github.com/KDE/plasma-desktop/blob/Plasma/6.8/applets/pager/pagermodel.cpp)
+and [Pager UI](https://github.com/KDE/plasma-desktop/blob/Plasma/6.8/applets/pager/qml/main.qml).
 
-`settings.json` contains portable defaults. A local JSON file can override only
-the needed values. `["@default"]` means resolve
-the desktop preference; an empty array disables that app's shortcuts. Explicit
-commands that are missing fail preflight. Optional auto-selected apps that are
-missing produce a report and are omitted from generated handlers.
+The workspace script uses the documented
+[KWin scripting API](https://develop.kde.org/docs/plasma/kwin/api/).
+Native output-default desktop selection and relative-move behavior were checked
+against [virtual desktops](https://github.com/KDE/kwin/blob/Plasma/6.8/src/virtualdesktops.cpp)
+and [window actions](https://github.com/KDE/kwin/blob/Plasma/6.8/src/useractions.cpp).
+One/two-monitor routing, single-screen fallback, independent selections and
+send-without-follow behavior have JavaScript regression coverage.
 
-Terminal uses KDE's TerminalService / TerminalApplication preference. Browser
-uses KDE's browser preference or its HTTPS MIME association. Files and editor
-use the directory and text MIME associations when xdg-mime is available.
-KDE launches desktop entries through kstart so field codes and activation are
-handled by the desktop. Installed application fallbacks are used only when no
-preference was obtained. Preferences are re-read on each shortcut activation.
+## Shortcut ownership and runtime
 
-Doctor checks required commands, session services, KWin version, Qt Python
-imports, XKB, QML modules and Breeze assets before installation. QML locations
-come from Qt's runtime, avoiding distribution-specific Qt development tools.
-The installer detects display priority instead of shipping monitor names.
+`shortcuts.json` defines native and application bindings. `workspace_shortcuts()`
+defines the remaining custom actions and feeds the generated workspace script;
+the template no longer duplicates their key sequences.
 
-One or two monitors and five desktops per output are the supported workflow.
-More monitors can use appearance only. Explicit disconnected output overrides
-fail early. On unplug, workspace scripts fall back to available screens;
-redocking and primary-display changes still need a physical-session test.
+KGlobalAccel owns a generated desktop-action service. Explicit command arrays
+launch through KDE directly. Dynamic defaults use `launch-app.py` and
+`applications.py`; the resolver replaces its own process with the selected
+command. A resolver fallback handles executable names containing `%`, which
+KIO does not expand like ordinary argument field codes. Quoted arguments,
+repeated launches, preference changes and this fallback are tested against the
+real native shortcut host on a private D-Bus session.
 
-## Updates and recovery
+Stock actions are bound to their existing components, rather than wrapped in a
+KWin launcher. KGlobalAccel persists its own configuration through D-Bus; Graphite
+does not encode the version-dependent service-group layout. Existing alternative
+keys are retained. Unknown conflicting actions stop the operation; only known
+native counterparts and Graphite's own previous actions can lose a conflicting
+key. Other alternatives stay intact. Layout aliases also check ownership before
+changing bindings. This is one shortcut registry, not a second launcher framework.
+See [KDE's service action implementation](https://github.com/KDE/kglobalacceld/blob/Plasma/6.8/src/kserviceactioncomponent.cpp).
 
-Before mutation, each operation saves all files it may change. Backup
-directories are private, manifests are written atomically, and each backup
-records its predecessor. Configuration updates preserve unrelated text,
-localized entries and nested groups. Locally locked KConfig entries fail rather
-than silently pretending they were changed. Individual payload writes use
-atomic replacement.
+The layout helper starts through native XDG autostart, only in KDE. It listens to
+layout signals, has a single-instance D-Bus name and ignores duplicate symbol
+maps. It does not poll. Its short GDBus calls occur only on layout changes;
+replacing those with typed QtDBus calls remains an opportunity requiring tests.
+No new background service was added. One persistent Python layout process remains;
+the resident launcher QML and custom applet are no longer installed. Memory savings
+have not been measured, and an existing user panel may still run its old widget.
 
-Only the workspace and launcher KWin scripts are managed. Third-party script
-files, settings and enable states are preserved. Shortcut conflicts with
-unmanaged KWin actions stop installation for resolution in System Settings;
-Graphite does not reassign another script's bindings. Runtime payloads explicitly
-include the maintained launch and keyboard-layout helpers. Workflow upgrades
-back up and remove the two retired Graphite utility helpers and unregister their
-actions; they do not remove or migrate any third-party scripts.
+Scratchpad membership lasts for the session. Sending hides the scratchpad;
+showing moves its windows to the focused output/desktop and temporarily raises
+them. Hiding restores keep-above changes Graphite made, preserving preexisting
+keep-above state and honoring KWin's effective window-rule values. No titlebar,
+skip-pager, tiler or window-rule configuration is changed.
 
-Desktop operations restore saved files automatically on failure, retaining the
-failure backup for inspection and keeping the previous successful backup as
-the restore target. Restore validates all saved source files before replacing
-any destination. Repeated restore unwinds successive installations. Backups
-restore entire touched files, including later edits; they are local recovery
-records, not portable machine configuration.
+## Configuration boundary
 
-Live D-Bus changes cannot be made atomic with filesystem changes. A new KDE
-login is required after workflow updates, failure recovery or restore. KWin
-script unload/reload is deliberately avoided because it previously caused a
-compositor crash. This is file rollback, not a claim of a transactional desktop
-session. Disk failure or process termination during mutation still requires
-manual restore using the printed backup directory.
+The installer changes the selected palette, UI fonts, Breeze style/icons and
+window decoration appearance, titlebar buttons, maximized titlebar visibility,
+static wallpapers and lock-screen presentation. The workflow additionally sets
+five desktops and per-output desktop selection, its script/output preferences,
+shortcuts and KDE-only keyboard-helper autostart. Existing desktop names and
+rows are preserved. Optional AltGr and wheel setup are separate opt-ins.
 
-The GTK synchronizer is stopped before colors change to keep KDE styling from
-spreading into other desktops. KDE's service is named kded6, but its module
-autoload configuration still uses kded5rc in
-[upstream KDED](https://github.com/KDE/kded/blob/master/src/kded.cpp).
+Graphite no longer disables effects, sets animation duration, changes focus
+policy, unloads GTK synchronization, or writes its autoload preference. Earlier
+values are not automatically reset: their current ownership is unknowable.
+Change those preferences in KDE settings or restore an appropriate backup.
+KDE's own GTK integration can still propagate appearance according to the user's
+preferences; Graphite does not write GTK or other desktops' configuration itself.
 
-## Verification and remaining release checks
+Narrow, text-preserving KConfig merges retain comments, localized values and
+unrelated groups; locked entries fail. Native D-Bus APIs handle shortcut
+registration and Plasma wallpaper changes. Wallpaper backup/restore uses desktop
+IDs through Plasma scripting and never writes whole containment files. A failed
+wallpaper snapshot aborts before applying changes.
 
-The automated suite covers isolated fresh XDG homes, repeat installs, missing
-dependencies and optional apps, failure after writes, restore history and
-corrupt backups, configuration preservation, keyboard layouts, JavaScript
-workspace behavior, and native theme import. Node and KPackage tools
-enable their respective tests; the tests do not install them. GitHub checks
-run portable Python and JavaScript tests and build the theme archive; tests
-requiring a KDE runtime are skipped there.
+The desktop installer never invokes sudo, a package manager or a download.
+Missing explicit override commands fail preflight. Missing optional defaults or
+native shortcut services are reported. Runtime files use destination XDG paths
+and do not depend on retaining the source checkout.
 
-The 2026-10-18 review also passes live read-only preflight on Plasma 6.8,
-builds the wheel against the installed KWin headers, and imports the theme in
-an isolated KPackage data directory. It does not reinstall the active desktop.
+## Updates, recovery and compatibility
 
-Before claiming a new distribution or Plasma version as graphically tested,
-run this acceptance pass in a clean VM or spare account:
+Identical file contents retain their inode and timestamp. Already satisfied
+shortcut bindings retain aliases and skip registration. The installer lets KGlobalAccel's debounced
+writes settle after shortcut changes and before failure recovery. Each operation still
+creates a private recovery record; this deliberate backup history is not a
+runtime configuration change.
 
-1. Run doctor and install without a local settings file, then log in again.
-2. Check application defaults, workspace switch/move, Finnish/US keyboard
-   layout changes, screen focus, scratchpad and native window controls.
-3. Repeat install, then restore twice; verify the original desktop after login.
-4. Test one screen, two screens, unplug/redock and changed display priority.
-5. Exercise optional panels; test wheel with a physical
-   mouse after login. Preview SDDM and test authentication in a recoverable VM.
+Backups validate all source files and compute scoped recovery before replacing
+any destination. New KConfig records identify only the selected entries and any
+actual native shortcut owners displaced by conflicts. Restore recovers raw entries,
+including KConfig expansion flags, while retaining later unrelated preferences.
+Failure restores selected settings/files and the previous successful backup pointer. Native
+D-Bus changes cannot be rolled back atomically with files; logout/login is required
+after installation or recovery. Neither KWin scripts nor plasmashell are restarted.
+Old backups containing whole panel files restore desktop wallpapers only, leaving
+current panels intact. Legacy KWin/shortcut backups infer only known Graphite
+entries, preserving third-party script settings. Older records cannot identify
+every displaced native shortcut owner, so those unrecorded legacy bindings may
+need manual recovery. Other legacy files and Graphite-owned payload files are
+restored whole, replacing later edits to those files.
 
-Suggested next improvement: run that graphical acceptance pass in a disposable
-Plasma VM before each release. Native plugin builds and unit tests cannot
-establish that a fresh graphical login or real authentication works everywhere.
+Upgrade cleanup is limited to known Graphite launcher files/actions, retired
+utility files that actually exist, and the old Global Theme layout scripts. The
+latter must be removed so an upgraded theme cannot expose a panel-reset layout.
+Installed custom widgets are retained for panels that reference them; replace
+them manually before removing their installed package. Third-party KWin scripts,
+including existing tilers, are never inspected, modified or reloaded.
+
+Appearance supports Plasma 6; the workflow needs Plasma 6.7+ Wayland's per-screen
+desktops. Output roles come from KDE priority or explicit overrides. More than two
+screens can use appearance only. Unplug/redock and display-priority changes still
+need physical-session acceptance tests.
+
+The optional wheel source/build remains unchanged. KWin discovers native effects
+through Qt plugin paths and validates its versioned factory IID. The existing
+Plasma-session-only `QT_PLUGIN_PATH` entry remains: no portable, verified per-KWin
+user-plugin path was found. A systemd-only override would exclude supported
+non-systemd sessions. This environment is inherited by Plasma applications, so
+it remains an isolated optional compatibility boundary. Rebuild after KWin upgrades.
+See the [native effect loader](https://github.com/KDE/kwin/blob/Plasma/6.8/src/effect/effectloader.cpp).
+SDDM retains its separate preflight and private Breeze QML compatibility boundary.
+
+## Validation limits
+
+Portable tests cover generation, configuration preservation, restores, repeated
+installs, failure recovery, keyboard layouts, routing and scratchpad state.
+Optional native tests cover real KGlobalAccel/KIO execution in temporary XDG
+homes on a private bus. KPackage import and wheel builds are additional checks.
+These do not establish graphical startup, physical mouse delivery, hot-plugging,
+SDDM authentication or crash stability. Test a fresh Plasma account/VM, both
+monitor configurations, layout switching, repeated install/restore and physical
+wheel input before claiming a release graphically verified.

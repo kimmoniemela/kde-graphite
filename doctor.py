@@ -1,9 +1,8 @@
 """Read-only dependency checks for Graphite's two installation profiles."""
 import importlib
 import importlib.util
-import ast
-import ctypes.util
 import json
+import ctypes.util
 import os
 from pathlib import Path
 import re
@@ -12,12 +11,7 @@ import shutil
 import applications
 
 
-def qml_import_path():
-    from PySide6.QtCore import QLibraryInfo
-    return Path(QLibraryInfo.path(QLibraryInfo.QmlImportsPath))
-
-
-def problems(api, options, full=False, with_wheel=False, panel=False):
+def problems(api, options, full=False, with_wheel=False):
     errors = []
     if os.geteuid() == 0:
         errors.append('Run as the desktop user, without sudo.')
@@ -45,40 +39,16 @@ def problems(api, options, full=False, with_wheel=False, panel=False):
                 errors.append('Cannot load PySide6 runtime: ' + str(error))
     missing = sorted({name for name in commands if not shutil.which(name)})
     errors += ['Missing command: ' + name for name in missing]
-    if full and importlib.util.find_spec('PySide6') is not None:
-        try:
-            qml = qml_import_path()
-            # org.kde.kwin is provided by KWin's engine, rather than a disk QML plugin.
-            modules = ['org/kde/plasma/plasma5support']
-            if panel:
-                modules.append('org/kde/taskmanager')
-            for module in modules:
-                if not (qml / module / 'qmldir').is_file():
-                    errors.append('Missing QML module: ' + module.replace('/', '.'))
-        except (ImportError, RuntimeError, OSError) as error:
-            errors.append('Cannot locate Qt QML modules: ' + str(error))
     if 'gdbus' not in missing:
         try:
             info = api.kwin('/KWin', 'org.kde.KWin.supportInformation')
             version = re.search(r'KWin version: (\d+)\.(\d+)', info)
             if not version or int(version[1]) != 6 or (full and int(version[2]) < 7):
                 errors.append('Requires Plasma 6.7+ for the full setup, or Plasma 6 for appearance only.')
-            for service, path, method in [
-                ('org.kde.plasmashell', '/PlasmaShell', 'org.freedesktop.DBus.Peer.Ping'),
-                ('org.kde.kded6', '/kded', 'org.freedesktop.DBus.Peer.Ping'),
-            ]:
-                api.dbus(service, path, method)
+            api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.freedesktop.DBus.Peer.Ping')
             if full:
                 api.dbus('org.kde.kglobalaccel', '/kglobalaccel', 'org.freedesktop.DBus.Peer.Ping')
                 api.dbus('org.kde.keyboard', '/Layouts', 'org.freedesktop.DBus.Peer.Ping')
-                if panel:
-                    reply = api.dbus('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell.evaluateScript',
-                                     'print(JSON.stringify(knownWidgetTypes));')
-                    widgets = json.loads(ast.literal_eval(reply)[0])
-                    for widget in ['org.kde.plasma.taskmanager', 'org.kde.plasma.panelspacer',
-                                   'org.kde.plasma.systemtray', 'org.kde.plasma.digitalclock']:
-                        if widget not in widgets:
-                            errors.append('Missing Plasma widget: ' + widget)
             if with_wheel and api.kwin('/Effects', 'org.kde.kwin.Effects.isEffectSupported', api.WHEEL) != '(true,)':
                 errors.append('Wheel plugin unavailable: install wheel/ or omit --with-wheel.')
         except (RuntimeError, OSError, ValueError, SyntaxError) as error:
@@ -91,16 +61,17 @@ def problems(api, options, full=False, with_wheel=False, panel=False):
     return errors
 
 
-def require(api, options, full=False, with_wheel=False, panel=False):
-    errors = problems(api, options, full, with_wheel, panel)
+def require(api, options, full=False, with_wheel=False):
+    errors = problems(api, options, full, with_wheel)
     if errors:
         raise RuntimeError('Preflight failed; no changes made:\n  - ' + '\n  - '.join(errors))
-    if full:
-        report_optional(options)
 
 
 def report_optional(options):
     commands, warnings = applications.launchers(options)
+    for component in json.loads((Path(__file__).parent / 'shortcuts.json').read_text())['native']:
+        if component.endswith('.desktop') and not applications.service_path(component):
+            warnings.append(component + ': native shortcut service unavailable; bindings skipped.')
     for warning in warnings:
         print('Optional: ' + warning)
     return commands

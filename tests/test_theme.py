@@ -16,12 +16,10 @@ import theme
 
 class ThemeTests(unittest.TestCase):
     def test_standalone_package_matches_canonical_palette_and_layout(self):
-        options = {'font': 'Fira Code', 'font_size': 10, 'panel_height': 28}
+        options = {'font': 'Fira Code', 'font_size': 10}
         files = theme.package_files(options)
         self.assertEqual(files[Path('contents/colors')], (install.ROOT / 'assets/color-schemes/TerminalGraphite.colors').read_bytes())
-        layout = Path('contents/layouts/org.kde.plasma.desktop-layout.js')
-        self.assertEqual(files[layout], (theme.PACKAGE / layout).read_bytes())
-        self.assertNotIn(b'@@', files[layout])
+        self.assertFalse(any('layouts' in path.parts for path in files))
         metadata = json.loads(files[Path('metadata.json')])
         self.assertEqual(metadata['KPackageStructure'], 'Plasma/LookAndFeel')
         self.assertEqual(metadata['KPlugin']['Name'], 'Graphite')
@@ -44,9 +42,10 @@ class ThemeTests(unittest.TestCase):
                 (config / name).mkdir()
                 (config / name / 'keep.conf').write_text('unchanged\n')
             protected = install.protected_hashes(config)
-            api = SimpleNamespace(**{key: getattr(install, key) for key in ['read_config', 'merge_config', 'protected_hashes', 'Backup', 'transaction', 'atomic_write']},
+            api = SimpleNamespace(**{key: getattr(install, key) for key in ['read_config', 'merge_config', 'protected_hashes', 'Backup', 'transaction', 'atomic_write', 'plasma_script']},
                                   run=Mock(return_value='Fira Code'), dbus=Mock(), kwin=Mock())
-            with patch('doctor.require'), patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'KDE'}), contextlib.redirect_stdout(io.StringIO()):
+            with patch('doctor.require'), patch('install.dbus', return_value="('[]',)"), \
+                 patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'KDE'}), contextlib.redirect_stdout(io.StringIO()):
                 theme.install_theme(install.settings(), config, data, state, api)
             for name in ['kglobalshortcutsrc', 'plasma-org.kde.plasma.desktop-appletsrc']:
                 self.assertEqual((config / name).read_text(), original[name])

@@ -27,6 +27,13 @@ def preference(key):
     return query('kreadconfig6', '--file', 'kdeglobals', '--group', 'General', '--key', key)
 
 
+def service_path(filename):
+    roots = [Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share')]
+    roots += [Path(p) for p in (os.environ.get('XDG_DATA_DIRS') or '/usr/local/share:/usr/share').split(':') if p]
+    return next((root / kind / filename for root in roots for kind in ['kglobalaccel', 'applications']
+                 if (root / kind / filename).is_file()), None)
+
+
 def desktop_command(service):
     """Let KDE expand Exec field codes and perform desktop activation."""
     filename = service if service.endswith('.desktop') else service + '.desktop'
@@ -68,18 +75,4 @@ def launchers(options):
             warnings.append(name + ': no installed application found; shortcut skipped.')
         else:
             commands[name] = argv
-    if 'Calculator' in commands:
-        commands['CalculatorKey'] = commands['Calculator']
-    for name, argv in {
-        'Launcher': ['krunner'], 'Settings': ['systemsettings'], 'Emoji': ['plasma-emojier'],
-        'ScreenshotRegion': ['spectacle', '--region'], 'ScreenshotFull': ['spectacle', '--fullscreen'],
-    }.items():
-        if shutil.which(argv[0]):
-            commands[name] = argv
-        else:
-            warnings.append(name + ': ' + argv[0] + ' is unavailable; shortcut skipped.')
-    commands.update({
-        'SessionMenu': ['gdbus', 'call', '--session', '--dest', 'org.kde.LogoutPrompt',
-                        '--object-path', '/LogoutPrompt', '--method', 'org.kde.LogoutPrompt.promptAll'],
-    })
     return commands, warnings

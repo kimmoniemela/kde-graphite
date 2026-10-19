@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(graphite-native-check LANGUAGES CXX)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui DBus)
+find_package(KF6GlobalAccel REQUIRED)
+find_package(KGlobalAccelD REQUIRED)
+add_executable(shortcut-host main.cpp)
+target_link_libraries(shortcut-host PRIVATE Qt6::Gui K::KGlobalAccelD)

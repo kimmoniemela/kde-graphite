@@ -24,3 +24,11 @@ name=default
 library=org.kde.breeze
 theme=Breeze
 BorderSize=Tiny
+ButtonsOnLeft=
+ButtonsOnRight=IAX
+
+[kwinrc][Windows]
+BorderlessMaximizedWindows=false
+
+[Wallpaper]
+Image=GraphiteContours

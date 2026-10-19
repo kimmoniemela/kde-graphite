@@ -21,8 +21,8 @@ Use the current README for installation steps.
 | Medium | The full install retained any existing decoration plugin, even when applying Breeze preferences. | Explicitly select the Breeze decoration in the full profile too. |
 | Medium | A stale monitor override was silently accepted; a third screen could display duplicate workspace labels. | Reject disconnected names and full setups with more than two screens before writing. Appearance remains independent of monitor count. |
 | Medium | A failed install could leave the latest-backup pointer referring to an older operation. | Write the pointer after the new backup is complete, before desktop mutations. |
-| Medium | The panel restart assumed a systemd Plasma unit. | Use it when available; otherwise require a new login. Systemd is no longer a prerequisite for installation. |
-| Low | `--no-panel` still cleared conflicting tray/notification shortcuts. | Leave those bindings alone when retaining panels. |
+| Medium | The former panel mode assumed a systemd Plasma unit. | Current desktop operations require a new login and do not restart plasmashell. |
+| Low | Retaining panels still cleared conflicting tray/notification shortcuts. | Leave those bindings alone when retaining panels. |
 | Low | Installation, C++ build instructions and incident notes were mixed together. | Keep the primary README focused on appearance and full installation. Move optional packaging/build details to `install-options.md`; record the audit here. |
 
 The theme and full setup still use selected KDE configuration merges, XDG
