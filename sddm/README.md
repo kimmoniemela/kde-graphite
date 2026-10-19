@@ -1,72 +1,88 @@
-# Graphite SDDM login screen
+# Graphite SDDM theme
 
-A Graphite skin of the installed Plasma 6.8 Breeze SDDM theme: charcoal and sage,
-the bundled contour wallpaper, a small wordmark and system monospace type.
-The static background replaces Breeze's animated wallpaper blur. Breeze's login,
-user selection, failure handling, session chooser, keyboard and power controls
-are retained. This does not change PAM, autologin, users or the selected session.
+[Project README](../README.md) · [Troubleshooting](../docs/troubleshooting.md)
 
-![Graphite SDDM preview](graphite/preview.png)
+An optional charcoal-and-sage login theme derived from Plasma 6.8 Breeze. It uses
+a static contour background and system monospace type while retaining Breeze's
+login, session, user, keyboard and power controls. It does not change PAM,
+autologin, users or the selected session.
 
-Tested with Arch/CachyOS SDDM 0.21.0 and Plasma 6.8. The theme uses the KDE QML
-components already installed with Plasma. No new packages or fonts are installed;
-system `monospace` resolves to installed Noto Sans Mono on the audited machine.
-The preview was rendered by the actual SDDM greeter in test mode.
+<img src="graphite/preview.png" alt="Graphite login theme shown in the SDDM test greeter" width="800">
+
+This existing preview was captured from the SDDM greeter in test mode. It is not
+evidence of a real password-authentication test.
+
+## Requirements
+
+The theme was previewed with SDDM 0.21.0 and Plasma 6.8 on Arch-based CachyOS.
+Other combinations are unverified. The separate installer checks for an installed
+SDDM greeter and Qt 6 QML modules: QtQuick, Layouts, Controls, Qt5Compat graphical
+effects, Plasma components/extras, Kirigami, the private keyboard indicator,
+workspace keyboard layout and Breeze components.
+
+These modules must already exist. No packages or fonts are installed. The theme
+uses private Plasma/Breeze imports, so compatibility can change with updates.
+The desktop theme does not require this integration or SDDM.
 
 ## Preview
 
-Run inside the desktop, without sudo:
+From the checkout root, run inside the desktop without sudo:
 
 ```sh
 sddm-greeter-qt6 --test-mode --theme "$PWD/sddm/graphite"
 ```
 
-Close the preview to return to the desktop. Test mode does not authenticate a
-session. Previewing does not select the theme for the real login screen.
+Some distributions name the Qt 6 binary `sddm-greeter` instead. Close the test
+window to return to the desktop. Test mode does not authenticate a session or
+select the theme for the real login screen.
 
-## Apply explicitly
+## Installation
+
+From the checkout root:
 
 ```sh
 python3 sddm/install.py --dry-run
 sudo python3 sddm/install.py
 ```
 
-The separate installer requires root only for SDDM's system directories. The
-normal Graphite desktop installer does not change SDDM. The source includes the
-wallpaper locally so the greeter does not need access to your home directory.
-Preflight checks the installed greeter and the Qt 6 / Plasma QML modules used
-by the theme before changing system files. Older Plasma versions may lack the
-Breeze components; use the desktop theme independently in that case.
+The dry run validates source files and greeter/QML prerequisites. Administrator
+access is required only for the real system installation. It changes these
+locations, backing up existing contents first:
 
-The command installs root-owned readable files under
-`/usr/share/sddm/themes/graphite`, selects `Current=graphite` and system monospace
-in `/etc/sddm.conf.d/99-graphite.conf`, and backs up the previous contents of
-those two targets under `/var/lib/kde-graphite/sddm-backups/`. The packaged Breeze
-theme remains available. If a later drop-in or `/etc/sddm.conf` selects another
-theme, or SDDM uses a custom theme directory, the installer reports the conflict
-before making changes.
+| System path | Purpose |
+| --- | --- |
+| `/usr/share/sddm/themes/graphite` | Root-owned theme files, readable by SDDM |
+| `/etc/sddm.conf.d/99-graphite.conf` | Select `Current=graphite` and system monospace font |
+| `/var/lib/kde-graphite/sddm-backups/` | Private installation backups |
 
-No service is restarted. The theme appears when SDDM next displays the login
-screen. The test preview validates rendering, not real password authentication.
+The wallpaper is included locally; SDDM does not need access to the user's home.
+The packaged Breeze theme stays available. A higher-priority selection of another
+theme in a drop-in or `/etc/sddm.conf`, or a custom `ThemeDir`, causes installation
+to stop before changes. Review the conflicting preference rather than replacing
+an entire SDDM configuration file.
+
+No service is restarted. Graphite appears when SDDM next displays the login
+screen. The normal desktop installer does not modify SDDM.
 
 ## Restore
 
-Use the backup path printed by the installer:
+Use the backup directory printed by the SDDM installer, replacing `BACKUP_NAME`:
 
 ```sh
 sudo python3 sddm/install.py --restore /var/lib/kde-graphite/sddm-backups/BACKUP_NAME
 ```
 
-Restoring also avoids restarting the display manager. The desktop profile's
-`install.py restore` handles desktop backups separately from these SDDM backups.
-Restore validates the backup manifest before deleting or replacing anything.
-Backups from the older installer without a manifest require manual recovery.
+Restore validates its manifest before replacing the two installation targets and
+does not restart the display manager. Legacy backups without a manifest require
+manual recovery. Desktop `install.py restore` handles different, per-user backups.
+There is no SDDM restore dry-run mode: `--dry-run` always previews installation,
+so do not combine it with `--restore` expecting recovery validation.
 
 ## Source and license
 
-The QML and fallback avatar were copied from the installed KDE Plasma 6.8 Breeze
-SDDM theme. Original copyright headers remain; local modifications are the
-palette, static overlay and wordmark. Upstream source:
+The QML and fallback avatar derive from the installed KDE Plasma 6.8 Breeze SDDM
+theme, with original notices retained. The upstream source is the
 [KDE Plasma Workspace SDDM theme](https://invent.kde.org/plasma/plasma-workspace/-/tree/Plasma/6.8/sddm-theme).
-The QML is LGPL-2.0-or-later; see `LICENSE.LGPL-2.0-or-later.txt`. The Graphite
-wallpaper and installer are project assets under the repository's MIT license.
+QML uses LGPL-2.0-or-later; see [the license](LICENSE.LGPL-2.0-or-later.txt).
+The original Graphite wallpaper and installer use the repository's
+[MIT license](../LICENSE). See [third-party notices](../THIRD_PARTY.md).

@@ -1,25 +1,29 @@
-# Third-party code
+# Third-party notices
+
+Graphite's original code and assets use the [MIT license](LICENSE). The derived
+components below retain their upstream notices and separate licenses.
 
 ## Workspace wheel effect
 
-`wheel/` derives from <https://github.com/R0h1tAnand/kwin-meta-scroll-switcher>.
-Imported upstream commit: `7d48ebdf4a1ab97cc8d2136e6bdc437c98546658`.
-
-It registers Super+wheel up/down and dispatches next/previous actions to the
-workspace script. It does not replace KWin. Installation is explicit and uses
-the local source and installed build tools, without downloading dependencies.
-
-License: GPL-2.0-or-later; see `wheel/LICENSE`.
+[wheel/](wheel) derives from
+[R0h1tAnand/kwin-meta-scroll-switcher](https://github.com/R0h1tAnand/kwin-meta-scroll-switcher),
+imported at commit `7d48ebdf4a1ab97cc8d2136e6bdc437c98546658`.
+It registers Super+wheel up/down and dispatches workspace actions to the Graphite
+KWin script. See [wheel/LICENSE](wheel/LICENSE), GPL-2.0-or-later.
 
 ## Color scheme
 
-`assets/color-schemes/TerminalGraphite.colors` is a modified KDE Breeze Dark
-scheme. The original SPDX copyright and LGPL-2.0-or-later notices are retained.
+[TerminalGraphite.colors](assets/color-schemes/TerminalGraphite.colors) is a
+modified KDE Breeze Dark scheme. Its original SPDX copyright and
+LGPL-2.0-or-later notices remain in the source and packaged palette. The license
+text is included under [assets/LICENSES/](assets/LICENSES/LGPL-2.0.txt) and in the
+[Global Theme package](theme/org.kde.graphite.desktop/LICENSES/LGPL-2.0.txt).
 
 ## SDDM login theme
 
-`sddm/graphite/` derives from the installed Plasma 6.8 KDE Breeze SDDM theme.
-Its login controls, session/keyboard chooser and fallback avatar are retained;
-Graphite adds its palette, static contour background and small wordmark.
-Original QML copyright headers remain. See [source and license](sddm/README.md)
-and `sddm/LICENSE.LGPL-2.0-or-later.txt`. The Graphite wallpaper is a project asset.
+[sddm/graphite/](sddm/graphite) derives from the KDE Plasma 6.8 Breeze SDDM theme.
+Original QML copyright headers remain. Its controls and fallback avatar are
+retained; Graphite supplies its palette, static contour background and wordmark.
+See the [SDDM source notes](sddm/README.md#source-and-license) and
+[LGPL-2.0-or-later license](sddm/LICENSE.LGPL-2.0-or-later.txt).
+The original Graphite wallpaper and installer use the project's MIT license.
