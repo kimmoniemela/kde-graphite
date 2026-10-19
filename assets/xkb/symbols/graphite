@@ -1,0 +1,6 @@
+// Keep the normal Super keys and make AltGr an additional Super.
+partial modifier_keys
+xkb_symbols "altgr_super" {
+    replace key <RALT> { type[Group1] = "ONE_LEVEL", [ Super_R ] };
+    modifier_map Mod4 { <LWIN>, <RWIN>, <RALT> };
+};

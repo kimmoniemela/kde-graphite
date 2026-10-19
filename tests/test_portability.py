@@ -171,7 +171,7 @@ class PortabilityTests(unittest.TestCase):
             original = (config / 'kwinrc').read_bytes()
             protected = install.protected_hashes(config)
             options = install.settings()
-            options.update(primary_output='PRIMARY', secondary_output='SECONDARY')
+            options.update(primary_output='PRIMARY', secondary_output='SECONDARY', altgr_as_super=True)
             with patch.object(install, 'preflight'), patch.object(install, 'resolve_outputs', return_value=options), \
                  patch.object(install, 'run', return_value='Fira Code'), patch.object(install, 'dbus'), \
                  patch.object(install, 'kwin', side_effect=AssertionError('Do not reload live KWin scripts')), \
@@ -179,6 +179,8 @@ class PortabilityTests(unittest.TestCase):
                  contextlib.redirect_stdout(io.StringIO()):
                 install.apply(options, config, data, state, panel=False)
             self.assertEqual(protected, install.protected_hashes(config))
+            self.assertTrue((config / 'xkb/symbols/graphite').is_file())
+            self.assertEqual(install.read_config(config / 'kxkbrc')['Layout']['Options'], 'graphite:altgr_super')
             self.assertEqual(install.read_config(config / 'kwinrc')['Windows']['Unrelated'], 'keep')
             self.assertEqual(install.read_config(config / 'kwinrc')['org.kde.kdecoration2']['library'], 'org.kde.breeze')
             self.assertNotIn(install.WHEEL + 'Enabled', install.read_config(config / 'kwinrc')['Plugins'])
@@ -192,6 +194,8 @@ class PortabilityTests(unittest.TestCase):
                  contextlib.redirect_stdout(io.StringIO()):
                 install.restore(backup)
             self.assertEqual((config / 'kwinrc').read_bytes(), original)
+            self.assertFalse((config / 'kxkbrc').exists())
+            self.assertFalse((config / 'xkb/symbols/graphite').exists())
             self.assertEqual(protected, install.protected_hashes(config))
 
     def test_missing_dependencies_leave_destination_untouched(self):

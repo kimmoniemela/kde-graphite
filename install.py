@@ -177,6 +177,8 @@ def settings(path=None):
             raise ValueError(f'applications.{name} must be an argument array; use [] to disable it')
         if any(s.startswith('@') for s in argv) and argv != applications.DEFAULT:
             raise ValueError(f'applications.{name}: use ["@default"] or an explicit command array')
+    if not isinstance(result['altgr_as_super'], bool):
+        raise ValueError('altgr_as_super must be a boolean')
     if not isinstance(result['panel_height'], int) or not 20 <= result['panel_height'] <= 64:
         raise ValueError('panel_height must be between 20 and 64')
     if not all(isinstance(result[role], str) for role in ['primary_output', 'secondary_output']):
@@ -186,6 +188,23 @@ def settings(path=None):
     if not isinstance(result['font_size'], (int, float)) or not 6 <= result['font_size'] <= 32:
         raise ValueError('font_size must be between 6 and 32')
     return result
+
+
+def keyboard_configuration(config):
+    """Add a user XKB option without replacing layouts or other keyboard options."""
+    option = 'graphite:altgr_super'
+    rules = config / 'xkb/rules/evdev'
+    content = rules.read_text() if rules.exists() else '! include %S/evdev\n'
+    rule = option + ' = +graphite(altgr_super)'
+    if rule not in content:
+        content += '\n! option = symbols\n  ' + rule + '\n'
+    existing = read_config(config / 'kxkbrc')
+    options = existing.get('Layout', 'Options', fallback=os.environ.get('XKB_DEFAULT_OPTIONS', ''))
+    values = [value for value in options.split(',') if value and value != option]
+    values.append(option)
+    files = {rules: content.encode(),
+             config / 'xkb/symbols/graphite': (ROOT / 'assets/xkb/symbols/graphite').read_bytes()}
+    return files, {'Layout': {'Options': ','.join(values), 'ResetOldOptions': 'true'}}
 
 
 def payload(options, data, panel=False):
@@ -396,6 +415,9 @@ def apply(options, config, data, state, with_wheel=False, panel=False):
     files = payload(options, data, panel=panel)
     launchers = json.loads(files[data / 'kde-graphite/runtime/launchers.json'])
     fragments = json.loads((ROOT / 'config.json').read_text())
+    if options['altgr_as_super']:
+        keyboard_files, fragments['kxkbrc'] = keyboard_configuration(config)
+        files.update(keyboard_files)
     # Preserve the wheel state unless explicitly enabling the native effect.
     fragments['kwinrc']['Plugins'].pop(WHEEL + 'Enabled', None)
     if with_wheel:
@@ -620,6 +642,8 @@ def main():
             print(f'Would install {len(payload(options, data, panel=args.panel))} asset/script files under {data}.')
             print(f'Would merge theme and shortcut settings under {config}; use five desktops per output.')
             print('Would ' + ('replace/create top bars.' if args.panel else 'retain existing bars.'))
+            if options['altgr_as_super']:
+                print('Would map AltGr to an additional Super key, preserving existing layouts and other options.')
             print('Would remove retired Graphite utility helpers and shortcut registrations, with backups.')
             print('Would back up touched files and leave other desktop configs unchanged. No changes made.')
         else:

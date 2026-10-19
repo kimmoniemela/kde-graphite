@@ -9,6 +9,7 @@ top bars and independently installed KWin scripts.
 | Graphite Global Theme, palette and wallpaper packages | Appearance using KDE's Breeze components | `theme` or `install` |
 | `kde-hypr-bridge` | Monitor-aware workspace switching, explicit window moves and scratchpad shortcuts | `install` |
 | `kde-hypr-launchers-v2` | Application shortcut handlers | `install` |
+| `assets/xkb/symbols/graphite` | Optional AltGr as an additional Super key | `install` with `altgr_as_super: true` |
 | `workspace-keys.py` | Adapt shifted number-row shortcuts to the active Finnish/US XKB layout | `install` |
 | `launch-app.py` | Run configured application shortcuts | `install` |
 | `applications.py` | Resolve KDE defaults and available optional apps | Copied with workflow runtime; no separate dependency |

@@ -56,3 +56,12 @@ the primary display and 6–10 on the secondary; key 0 means workspace 10.
 The display order comes from KDE settings at installation, or the explicit
 `primary_output` and `secondary_output` overrides. With one connected display,
 both number banks target its five workspaces; its bar shows 1–5.
+
+To use AltGr (right Alt) as another Super key, set `"altgr_as_super": true` in
+`settings.local.json` and pass it to `install --settings settings.local.json`.
+The normal left and right Super keys keep working. This replaces AltGr's
+third-level character input, including Finnish AltGr combinations. Existing
+layout selections and unrelated XKB options are retained. The mapping uses a
+small user XKB option under `~/.config/xkb/`, with normal installer backups;
+appearance-only installation does not change it. Log in again after installing.
+The portable default is `false`, which leaves keyboard mappings untouched.

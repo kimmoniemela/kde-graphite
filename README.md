@@ -85,7 +85,9 @@ Pass `--settings settings.local.json` to both doctor and install. Omitted
 preferences retain portable defaults; `["@default"]` restores automatic app
 selection. This file is ignored by Git. Avoid copying machine-specific output
 names to a new computer; empty output names enable detection. Re-run install
-to enable shortcuts for optional apps added later.
+to enable shortcuts for optional apps added later. Set `"altgr_as_super": true`
+to use AltGr as an additional Super key; this replaces its character modifier
+function. See [keyboard details](docs/shortcuts.md).
 
 ## Explicit optional components
 
