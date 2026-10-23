@@ -87,7 +87,21 @@ Calculator and process monitor use candidate selection, not a KDE default-app ro
 ## Keyboard shortcuts
 
 The [README tables](../README.md#keyboard-shortcuts) list the shipped bindings.
-There are two sources:
+Open **System Settings → Keyboard → Shortcuts**, or run `systemsettings kcm_keys`.
+Under **System Services → KWin**, search for **Graphite:** to find workspace
+actions. Older installations also list Graphite application launchers there;
+current installations use **Graphite application shortcuts** for those actions.
+Other native bindings appear under their service, such as KRunner or KWin.
+The launcher's bare Meta binding is **Plasma Workspace → Activate Application
+Launcher**. Disabling that binding leaves Meta combinations available.
+
+Super+mouse-wheel is supplied by **System Settings → Window Management → Desktop
+Effects → Graphite workspace scroll**. Its up/down directions are defined in
+[wheel/src/workspace-scroll.cpp](../wheel/src/workspace-scroll.cpp), rather than
+the keyboard shortcut editor. They invoke KWin's **Graphite: Next workspace**
+and **Graphite: Previous workspace** actions.
+
+There are two sources for the keyboard bindings:
 
 - [shortcuts.json](../shortcuts.json): existing KDE action IDs under `native`, and
   application bindings under `applications`.

@@ -600,7 +600,9 @@ def check(with_wheel=None):
     if not re.search(r'\buint32 5\b', count):
         raise RuntimeError('Expected five native desktops')
     if with_wheel and kwin('/Effects', 'org.kde.kwin.Effects.isEffectLoaded', WHEEL) != '(true,)':
-        raise RuntimeError('Workspace wheel effect is not loaded')
+        raise RuntimeError('Workspace wheel effect is not loaded. After a KWin upgrade, run '
+                           'python3 install.py wheel to rebuild it, then log out and back in. '
+                           'See docs/troubleshooting.md#wheel-does-not-switch-desktops')
     if not (data / 'kglobalaccel' / APPLICATION_COMPONENT).is_file():
         raise RuntimeError('Native Graphite shortcut service is missing. Re-run install and log in again.')
     if not (config / 'autostart/org.kde.graphite.workspace-keys.desktop').is_file():

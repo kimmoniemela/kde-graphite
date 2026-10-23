@@ -61,6 +61,27 @@ look for a layout-alias conflict, and verify the helper after login. Its diagnos
 prefix is `Graphite workspace move keys`. The helper owns those aliases; changing
 them only in KDE settings may not persist across layout changes.
 
+## All Super and AltGr shortcuts stop working
+
+The application launcher's bare Meta shortcut and Meta combinations are separate
+bindings. To disable only the launcher, open **System Settings → Keyboard →
+Shortcuts → Plasma Workspace → Activate Application Launcher**, uncheck **Meta**
+and apply. See [keybinding locations](configuration.md#keyboard-shortcuts) for
+Graphite's actions.
+
+If existing combinations stop responding after editing shortcuts, close the
+shortcut editor. KDE can temporarily block global shortcuts independently of
+their saved assignments. Release a stuck block in the running session with:
+
+```sh
+gdbus call --session --dest org.kde.kglobalaccel --object-path /kglobalaccel \
+  --method org.kde.KGlobalAccel.blockGlobalShortcuts false
+```
+
+This reactivates the existing assignments without changing the keymap or enabling
+the launcher's bare Meta binding. Test Super+E, AltGr+E (if mapped as Super), and
+Super+1 afterward. If only Super+wheel still fails, check the effect below.
+
 ## Wrong monitor or workspace labels
 
 Inspect `kscreen-doctor -j` and compare the names with local output overrides.
@@ -80,8 +101,38 @@ a new Plasma login. The `wheel` command builds and installs it; `--with-wheel`
 on ordinary install only enables an already discoverable effect and never builds
 it. Use the [README wheel procedure](../README.md#optional-mouse-wheel).
 
-Rebuild after a KWin upgrade. If doctor/check still rejects the effect, retain
-the build error and KWin version for a report. The plugin uses a Plasma-session
+The plugin must match KWin's exact version, including the patch release. KWin
+refuses to load a plugin built for 6.8.0 into 6.8.1, for example. This is separate
+from the launcher's Meta binding. Rebuild after a KWin upgrade:
+
+```sh
+python3 install.py wheel
+```
+
+If the plugin path is already active in this Plasma session and the old effect
+is not loaded, load the rebuilt effect immediately:
+
+```sh
+gdbus call --session --dest org.kde.KWin --object-path /Effects \
+  --method org.kde.kwin.Effects.loadEffect kwin_hypr_scroll_desktop
+gdbus call --session --dest org.kde.KWin --object-path /Effects \
+  --method org.kde.kwin.Effects.isEffectLoaded kwin_hypr_scroll_desktop
+```
+
+Both calls should return `(true,)`. Otherwise, log out and back in, then check
+again. Test Super+wheel up/down over an application or the desktop. Enable or
+disable the effect through **System Settings → Window Management → Desktop
+Effects → Graphite workspace scroll**.
+
+For a version mismatch, the session journal reports that the effect was built
+for a different KWin version:
+
+```sh
+journalctl --user -b -u plasma-kwin_wayland.service --no-pager
+```
+
+If doctor/check still rejects the effect, retain the build error and KWin version
+for a report. The plugin uses a Plasma-session
 Qt plugin path; it is not loaded merely by opening a new terminal. Only
 Super+wheel up/down is registered. Physical input delivery needs testing in the
 actual session even when effect loading passes.
