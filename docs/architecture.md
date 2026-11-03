@@ -126,10 +126,16 @@ the installed Graphite workspace workflow; appearance installation is independen
 
 The build uses local CMake source, matching KWin headers/library, Qt 6 and KF6.
 The user binary is replaced atomically, preserving a currently mapped inode.
-A Plasma-session environment script adds its plugin root to `QT_PLUGIN_PATH`
-while retaining existing entries. Plasma applications inherit that path; a
+A Plasma-session environment script first runs a local incremental CMake build
+before KWin starts, then adds its plugin root to `QT_PLUGIN_PATH` while retaining
+existing entries. The source and build helper are installed beside the plugin;
+the checkout is not needed at login. Build state/logs live under the Graphite
+state directory. Disabled effects skip the build; failures preserve the last
+binary and allow login to continue. No persistent process or package installation
+is added. Plasma applications inherit the plugin path; a
 narrower portable replacement has not been verified. KWin's versioned plugin
-factory IID makes rebuilding after KWin upgrades necessary.
+factory IID makes rebuilding after KWin upgrades necessary; the login build
+tracks the installed headers and library through CMake's dependency checks.
 
 ## Recovery and upgrades
 

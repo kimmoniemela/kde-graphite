@@ -103,11 +103,20 @@ it. Use the [README wheel procedure](../README.md#optional-mouse-wheel).
 
 The plugin must match KWin's exact version, including the patch release. KWin
 refuses to load a plugin built for 6.8.0 into 6.8.1, for example. This is separate
-from the launcher's Meta binding. Rebuild after a KWin upgrade:
+from the launcher's Meta binding. Current wheel installations check the build
+before KWin starts at each Plasma login, rebuilding with installed tools when
+headers/libraries change. Older installations need the command below once to
+install that startup check. To repair manually after a KWin upgrade:
 
 ```sh
 python3 install.py wheel
 ```
+
+If a login rebuild fails, inspect
+`${XDG_STATE_HOME:-$HOME/.local/state}/kde-graphite/wheel-build.log` and ensure
+the matching development dependencies are still installed. Login continues and
+the previous plugin is retained when a build fails. The startup check uses an
+installed source copy and does not require this checkout or install packages.
 
 If the plugin path is already active in this Plasma session and the old effect
 is not loaded, load the rebuilt effect immediately:
@@ -196,8 +205,8 @@ the defaults. These installed paths are not additional files in the checkout.
 | Data directory: `kwin/scripts/kde-hypr-bridge` | Generated workspace script |
 | Data directory: `kglobalaccel/org.kde.graphite.applications.desktop` | Native application shortcut service |
 | Data directory: `kde-graphite/runtime` | Application/layout Python helpers, `applications.py` and `launchers.json` |
-| Data directory: `kde-graphite/wheel/qt6/plugins` | Optional native wheel plugin root |
-| `${XDG_STATE_HOME:-$HOME/.local/state}/kde-graphite` | `backups/` and `latest-backup` |
+| Data directory: `kde-graphite/wheel` | Optional native wheel plugin under `qt6/plugins`, standalone build helper and `source/` |
+| `${XDG_STATE_HOME:-$HOME/.local/state}/kde-graphite` | `backups/`, `latest-backup`, incremental `wheel-build/` cache and build log/lock |
 
 Upgrades remove only known retired Graphite files/actions. Previously installed
 Graphite widgets are retained for existing panels; replace them manually with

@@ -642,24 +642,36 @@ def install_wheel(config, data, state):
     build = ROOT / 'build/wheel'
     run('cmake', '-S', str(ROOT / 'wheel'), '-B', str(build), '-DCMAKE_BUILD_TYPE=Release', timeout=120)
     run('cmake', '--build', str(build), '--parallel', '2', timeout=180)
-    plugin_root = data / 'kde-graphite/wheel/qt6/plugins'
+    wheel_home = data / 'kde-graphite/wheel'
+    plugin_root = wheel_home / 'qt6/plugins'
     plugin = plugin_root / 'kwin/effects/plugins' / (WHEEL + '.so')
     environment = config / 'plasma-workspace/env/graphite-wheel.sh'
+    # Keep the tiny build input independent of this checkout for future logins.
+    files = {wheel_home / 'source' / path.relative_to(ROOT / 'wheel'): path.read_bytes()
+             for path in (ROOT / 'wheel').rglob('*') if path.is_file()}
+    helper = wheel_home / 'build-wheel.py'
+    files[helper] = (ROOT / 'scripts/build-wheel.py').read_bytes()
+    startup_build = shlex.join([sys.executable, str(helper), '--config', str(config / 'kwinrc'),
+                               '--state', str(state / 'kde-graphite')])
+    files[environment] = ('# Graphite workspace-wheel effect; Plasma session only.\n'
+                          '# Rebuild against updated KWin/Qt headers before the compositor starts.\n'
+                          + startup_build + ' || true\n'
+                          'export QT_PLUGIN_PATH=' + shlex.quote(str(plugin_root)) +
+                          '${QT_PLUGIN_PATH:+:"$QT_PLUGIN_PATH"}\n').encode()
     backup = Backup(state)
-    backup.save([plugin, environment, config / 'kwinrc'],
+    backup.save([plugin, *files, config / 'kwinrc'],
                 {str(config / 'kwinrc'): {'Plugins': [WHEEL + 'Enabled']}})
     with transaction(backup):
         plugin.parent.mkdir(parents=True, exist_ok=True)
-        # Keep a currently mapped plugin intact; activate the new inode at login.
+        # Keep a currently mapped plugin intact; KWin can load the new inode.
         atomic_copy(build / (WHEEL + '.so'), plugin)
-        environment.parent.mkdir(parents=True, exist_ok=True)
-        atomic_write(environment, ('# Graphite workspace-wheel effect; Plasma session only.\n'
-                                  'export QT_PLUGIN_PATH=' + shlex.quote(str(plugin_root)) +
-                                  '${QT_PLUGIN_PATH:+:"$QT_PLUGIN_PATH"}\n').encode())
+        for path, content in files.items():
+            atomic_write(path, content)
         merge_config(config / 'kwinrc', {'Plugins': {WHEEL + 'Enabled': 'true'}})
         print(f'Backup: {backup.path}')
         print('Installed the project wheel effect for this user. No system packages were installed.')
         print('Super+wheel up: next workspace; Super+wheel down: previous workspace.')
+        print('Plasma login will check/rebuild the effect after KWin or Qt updates using installed tools.')
         print('Log out and back into KDE to load the user plugin path. Then run: python3 install.py check')
 
 

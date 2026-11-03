@@ -98,7 +98,11 @@ python3 install.py wheel
 
 Log out and back in, then run `python3 install.py check --with-wheel`.
 Super+wheel up selects the next desktop; down selects the previous one, on the
-focused monitor. Navigation stops at desktops 1 and 5. Rebuild after KWin upgrades.
+focused monitor. Navigation stops at desktops 1 and 5. At each Plasma login, the
+existing environment hook checks the local build and recompiles after KWin/Qt
+updates using installed development tools. It retains a standalone source copy,
+so the checkout is not needed at login. Build failures are recorded in
+`~/.local/state/kde-graphite/wheel-build.log` and do not prevent login.
 See [wheel compatibility](docs/architecture.md#mouse-wheel-integration).
 
 ### Optional SDDM login theme

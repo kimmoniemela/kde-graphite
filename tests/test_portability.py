@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -24,6 +25,9 @@ class PortabilityTests(unittest.TestCase):
             build = root / 'build/wheel'
             build.mkdir(parents=True)
             (build / (install.WHEEL + '.so')).write_bytes(b'new plugin')
+            shutil.copytree(install.ROOT / 'wheel', root / 'wheel')
+            (root / 'scripts').mkdir()
+            shutil.copy2(install.ROOT / 'scripts/build-wheel.py', root / 'scripts/build-wheel.py')
             plugin = data / 'kde-graphite/wheel/qt6/plugins/kwin/effects/plugins' / (install.WHEEL + '.so')
             plugin.parent.mkdir(parents=True)
             plugin.write_bytes(b'old plugin')
@@ -36,6 +40,12 @@ class PortabilityTests(unittest.TestCase):
             self.assertTrue(all(call.args[0] == 'cmake' for call in run.call_args_list))
             self.assertEqual(plugin.read_bytes(), b'new plugin')
             self.assertNotEqual(plugin.stat().st_ino, old_inode)
+            wheel_home = data / 'kde-graphite/wheel'
+            self.assertEqual((wheel_home / 'source/src/plugin.cpp').read_bytes(),
+                             (root / 'wheel/src/plugin.cpp').read_bytes())
+            self.assertTrue((wheel_home / 'build-wheel.py').is_file())
+            environment = (config / 'plasma-workspace/env/graphite-wheel.sh').read_text()
+            self.assertLess(environment.index('build-wheel.py'), environment.index('export QT_PLUGIN_PATH='))
             self.assertEqual(install.read_config(config / 'kwinrc')['Script-krohnkite']['custom'], 'keep')
             self.assertEqual(install.read_config(config / 'kwinrc')['Plugins']['krohnkiteEnabled'], 'false')
             backup = Path((state / 'kde-graphite/latest-backup').read_text().strip())
@@ -45,6 +55,8 @@ class PortabilityTests(unittest.TestCase):
             self.assertEqual(install.read_config(config / 'kwinrc')['Windows']['FocusPolicy'], 'ClickToFocus')
             self.assertEqual(install.read_config(config / 'kwinrc')['Plugins']['krohnkiteEnabled'], 'false')
             self.assertFalse((config / 'plasma-workspace/env/graphite-wheel.sh').exists())
+            self.assertFalse((wheel_home / 'build-wheel.py').exists())
+            self.assertFalse((wheel_home / 'source/src/plugin.cpp').exists())
 
     def test_install_preserves_third_party_scripts_effects_and_bars(self):
         with tempfile.TemporaryDirectory() as directory:
