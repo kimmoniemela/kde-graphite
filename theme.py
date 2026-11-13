@@ -19,9 +19,11 @@ def wallpaper_script(data):
 
 def font_values(options):
     family, size = options['font'], options['font_size']
-    normal = f'{family},{size},-1,5,400,0,0,0,0,0'
-    small = f'{family},{max(size - 1, 8)},-1,5,400,0,0,0,0,0'
-    title = f'{family},{max(size - 1, 8)},-1,5,500,0,0,0,0,0'
+    # Qt 6 requires at least 16 fields to recognize its 100–900 weight scale.
+    # In the legacy 10-field format, 400 is decoded as Black (900).
+    normal = f'{family},{size},-1,5,400,0,0,0,0,0,0,0,0,0,0,1'
+    small = f'{family},{max(size - 1, 8)},-1,5,400,0,0,0,0,0,0,0,0,0,0,1'
+    title = small
     return {'General': {**{key: normal for key in ['font', 'fixed', 'menuFont', 'toolBarFont']},
                         'smallestReadableFont': small}, 'WM': {'activeFont': title}}
 
@@ -33,9 +35,8 @@ def package_files(options):
     defaults = (PACKAGE / 'contents/defaults').read_text()
     fonts = font_values(options)
     replacements = {
-        'Fira Code,10,-1,5,400,0,0,0,0,0': fonts['General']['font'],
-        'Fira Code,9,-1,5,400,0,0,0,0,0': fonts['General']['smallestReadableFont'],
-        'Fira Code,9,-1,5,500,0,0,0,0,0': fonts['WM']['activeFont'],
+        'Fira Code,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1': fonts['General']['font'],
+        'Fira Code,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1': fonts['General']['smallestReadableFont'],
     }
     for old, new in replacements.items():
         defaults = defaults.replace(old, new)

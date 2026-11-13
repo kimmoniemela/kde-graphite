@@ -34,6 +34,13 @@ class SddmTests(unittest.TestCase):
                 sddm.apply()
                 self.assertTrue((theme / 'background.png').is_file())
                 self.assertIn('Current=graphite', config.read_text())
+                if importlib.util.find_spec('PySide6'):
+                    from PySide6.QtGui import QFont
+                    generated = sddm.configparser.ConfigParser()
+                    generated.read_string(config.read_text())
+                    font = QFont()
+                    self.assertTrue(font.fromString(generated['Theme']['Font']))
+                    self.assertEqual(font.weight(), QFont.Normal)
                 self.assertEqual((theme / 'Main.qml').stat().st_mode & 0o777, 0o644)
                 sddm.restore(next(backups.iterdir()))
             self.assertEqual((theme / 'original').read_text(), 'old theme')

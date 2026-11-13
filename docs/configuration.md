@@ -45,6 +45,9 @@ automatically discovered or saved as the next invocation's defaults.
 
 Setting and application names are case-sensitive. Missing fonts fall back to
 Fira Code when installed, then `monospace`. No fonts are downloaded or installed.
+Interface text and window titles use regular weight (400).
+Font values use Qt 6's expanded format; writing `400` in the older short format
+causes Qt to interpret it as Black (900).
 Monitor and application preferences are unused by the appearance profile.
 
 ## Applications

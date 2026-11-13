@@ -3,16 +3,16 @@ widgetStyle=Breeze
 
 [kdeglobals][General]
 ColorScheme=TerminalGraphite
-font=Fira Code,10,-1,5,400,0,0,0,0,0
-fixed=Fira Code,10,-1,5,400,0,0,0,0,0
-menuFont=Fira Code,10,-1,5,400,0,0,0,0,0
-toolBarFont=Fira Code,10,-1,5,400,0,0,0,0,0
-smallestReadableFont=Fira Code,9,-1,5,400,0,0,0,0,0
+font=Fira Code,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+fixed=Fira Code,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+menuFont=Fira Code,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+toolBarFont=Fira Code,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+smallestReadableFont=Fira Code,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 
 [kdeglobals][WM]
 # Plasma 6.7 uses WM/font to detect font contents, and activeFont to apply them.
-font=Fira Code,10,-1,5,400,0,0,0,0,0
-activeFont=Fira Code,9,-1,5,500,0,0,0,0,0
+font=Fira Code,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+activeFont=Fira Code,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 
 [kdeglobals][Icons]
 Theme=breeze-dark

@@ -51,6 +51,10 @@ Read skipped tests in the output; an ordinary portable run does not enable the
 optional native shortcut test. CI tests Python 3.10 and 3.14 with Node and builds
 the archive. It does not establish graphical compatibility on its runner OS.
 Asset renderers use PySide6 QtGui; wallpaper rendering also uses QtSvg.
+`python3 tools/render-font-samples.py` renders three regular monospace choices
+to `build/font-samples/`, including a comparison sheet. It requires PySide6
+QtWidgets, the Breeze widget style, and installed Noto Sans Mono, Hack and
+DejaVu Sans Mono fonts. The images show illustrative native Qt windows.
 File-install tests use temporary directories and mocked desktop APIs; KPackage
 import uses an isolated data directory and disconnected session bus.
 

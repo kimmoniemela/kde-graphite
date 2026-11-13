@@ -1,4 +1,6 @@
 import contextlib
+import configparser
+import importlib.util
 import io
 import json
 import os
@@ -15,6 +17,26 @@ import theme
 
 
 class ThemeTests(unittest.TestCase):
+    @unittest.skipUnless(importlib.util.find_spec('PySide6'), 'PySide6 is needed to decode Qt fonts')
+    def test_generated_and_shipped_fonts_decode_as_regular_in_qt6(self):
+        from PySide6.QtGui import QFont
+
+        values = []
+        for options in [{'font': 'Fira Code', 'font_size': 10}, {'font': 'monospace', 'font_size': 12}]:
+            values.extend(value for group in theme.font_values(options).values() for value in group.values())
+            defaults = configparser.ConfigParser()
+            defaults.optionxform = str
+            defaults.read_string(theme.package_files(options)[Path('contents/defaults')].decode())
+            for group in ['kdeglobals][General', 'kdeglobals][WM']:
+                values.extend(value for key, value in defaults[group].items() if key != 'ColorScheme')
+        profile = install.read_config(install.ROOT / 'assets/konsole/TerminalGraphite.profile')
+        values.append(profile['Appearance']['Font'])
+        for value in set(values):
+            with self.subTest(font=value):
+                font = QFont()
+                self.assertTrue(font.fromString(value))
+                self.assertEqual(font.weight(), QFont.Normal)
+
     def test_standalone_package_matches_canonical_palette_and_layout(self):
         options = {'font': 'Fira Code', 'font_size': 10}
         files = theme.package_files(options)

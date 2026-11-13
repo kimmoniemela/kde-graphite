@@ -106,7 +106,7 @@ def apply():
                 shutil.rmtree(THEME)
             staged.rename(THEME)
         config = ('[Theme]\nCurrent=graphite\n'
-                  'Font=monospace,10,-1,5,400,0,0,0,0,0\n')
+                  'Font=monospace,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1\n')
         with tempfile.NamedTemporaryFile(dir=CONFIG.parent, mode='w', delete=False) as handle:
             handle.write(config)
             staged_config = Path(handle.name)

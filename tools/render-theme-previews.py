@@ -17,10 +17,10 @@ def rect(painter, x, y, width, height, color):
     painter.fillRect(QRectF(x, y, width, height), QColor(color))
 
 
-def text(painter, x, y, content, size=14, color=TEXT, bold=False):
+def text(painter, x, y, content, size=14, color=TEXT):
     font = QFont(FAMILY, size)
     font.setStyleHint(QFont.TypeWriter)
-    font.setBold(bold)
+    font.setWeight(QFont.Normal)
     painter.setFont(font)
     painter.setPen(QColor(color))
     painter.drawText(x, y, content)
@@ -51,7 +51,7 @@ def desktop():
     text(p, 1444, 23, '12:34', 11)
     window(p, 40, 74, 928, 744, 'terminal — graphite')
     window(p, 984, 74, 576, 744, 'notes')
-    text(p, 68, 142, 'graphite ~', 15, SAGE, True)
+    text(p, 68, 142, 'graphite ~', 15, SAGE)
     text(p, 68, 179, '$ cat /etc/os-release', 14)
     text(p, 68, 219, 'NAME="Linux"', 14, MUTED)
     text(p, 68, 250, 'DESKTOP="KDE Plasma"', 14, MUTED)
@@ -59,13 +59,13 @@ def desktop():
     text(p, 68, 351, 'ready', 14, SAGE)
     text(p, 68, 413, '$', 14, SAGE)
     rect(p, 95, 396, 10, 20, SAGE)
-    text(p, 1012, 143, '# workspace', 15, SAGE, True)
+    text(p, 1012, 143, '# workspace', 15, SAGE)
     lines = ['A place to focus.', '', 'Charcoal surfaces.', 'Muted sage accents.', 'Monospace type.', '', 'Five spaces per display.', 'One quiet top bar.']
     for n, line in enumerate(lines):
         text(p, 1012, 193 + n * 32, line, 13, MUTED if n in [0, 6, 7] else TEXT)
     for n, color in enumerate([BG, PANEL, LINE, SELECT, MUTED, SAGE]):
         rect(p, 1012 + n * 76, 674, 64, 40, color)
-    text(p, 1012, 762, 'GRAPHITE', 20, TEXT, True)
+    text(p, 1012, 762, 'GRAPHITE', 20, TEXT)
     text(p, 42, 864, 'GRAPHITE', 11, SAGE)
     text(p, 188, 864, 'KDE PLASMA', 10, MUTED)
     p.end()
